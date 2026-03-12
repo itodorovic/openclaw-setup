@@ -13,6 +13,7 @@ domain_name   = "ai.example.com"
 status_domain = "status.example.com"
 
 # ── Access Control ──────────────────────────────────────────────────────────
+# email_forward_to is automatically added to the Access policy if set
 allowed_emails   = ["admin@example.com"]
 email_forward_to = "your.personal@gmail.com"  # Cloudflare Email Routing: admin@example.com → here
 

@@ -72,7 +72,7 @@ resource "cloudflare_zero_trust_access_policy" "dashboard_allow" {
   decision       = "allow"
 
   include {
-    email = var.allowed_emails
+    email = local.access_emails
   }
 }
 
@@ -84,7 +84,7 @@ resource "cloudflare_zero_trust_access_policy" "status_allow" {
   decision       = "allow"
 
   include {
-    email = var.allowed_emails
+    email = local.access_emails
   }
 }
 
