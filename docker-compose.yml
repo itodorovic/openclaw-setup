@@ -15,6 +15,9 @@ services:
       - PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
       - NODE_COMPILE_CACHE=/home/node/.cache/node-compile
       - OPENCLAW_NO_RESPAWN=1
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1536m
     healthcheck:
       test:
         - CMD-SHELL
@@ -49,6 +52,12 @@ services:
     image: ${CADDY_IMAGE:-caddy@sha256:fce4f15aad23222c0ac78a1220adf63bae7b94355d5ea28eee53910624acedfa}
     container_name: caddy-proxy
     restart: unless-stopped
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
     env_file:
       - .env
     # Ports removed for maximum security; traffic now flows through the Tunnel
@@ -65,6 +74,12 @@ services:
     image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0}
     container_name: cloudflared
     restart: unless-stopped
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
     env_file:
       - .env
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
@@ -80,6 +95,7 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 4 * * * # Pull and update at 4 AM every day
       - DOCKER_API_VERSION=1.40
+    mem_limit: 128m
 
   # 5. Nightly Encrypted Off-Site Backups
   volume-backup:
@@ -94,12 +110,19 @@ services:
     environment:
       BACKUP_CRON_EXPRESSION: "0 3 * * *"
       BACKUP_RETENTION_LOCAL: "7"
+    mem_limit: 256m
 
   # 6. Uptime Monitoring & Alerting
   uptime-kuma:
     image: ${UPTIME_KUMA_IMAGE:-louislam/uptime-kuma@sha256:3d632903e6af34139a37f18055c4f1bfd9b7205ae1138f1e5e8940ddc1d176f9}
     container_name: uptime-kuma
     restart: unless-stopped
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
     volumes:
       - uptime_kuma_data:/app/data
 

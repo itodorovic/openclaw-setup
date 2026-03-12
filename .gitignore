@@ -21,3 +21,6 @@ override.tf.json
 # IDE
 .vscode/
 .idea/
+
+# Temporary working notes
+improvements.md
