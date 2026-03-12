@@ -48,7 +48,8 @@ write_files:
           "mode": "local",
           "controlUi": {
             "allowedOrigins": ["https://${domain_name}"]
-          }
+          },
+          "trustedProxies": ["172.16.0.0/12", "10.0.0.0/8"]
         },
         "tools": {
           "profile": "coding"
@@ -70,6 +71,8 @@ write_files:
       set -euo pipefail
       CONTAINER="openclaw-setup-openclaw-gateway-1"
       PACKAGES="${extra_apt_packages}"
+      # Allow the node user to run npm global installs (enables dashboard "Update now" button)
+      docker exec -u root "$CONTAINER" bash -c "chown -R node:node /usr/local/lib/node_modules /usr/local/bin" 2>/dev/null || true
       if [ -n "$PACKAGES" ]; then
         docker exec -u root "$CONTAINER" bash -c "apt-get update -qq && apt-get install -yqq $PACKAGES"
       fi
@@ -110,7 +113,7 @@ runcmd:
   - |
     VOLUME_PATH=$(docker volume inspect openclaw-setup_openclaw_data --format '{{ .Mountpoint }}')
     cp /root/.openclaw-config.json "$VOLUME_PATH/openclaw.json"
-    chown 1000:1000 "$VOLUME_PATH/openclaw.json"
+    chown -R 1000:1000 "$VOLUME_PATH"
 
   # 9. Launch the full stack
   - cd /root/openclaw-setup && docker compose up -d
