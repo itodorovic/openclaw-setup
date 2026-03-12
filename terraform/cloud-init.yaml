@@ -37,7 +37,10 @@ write_files:
             "model": {
               "primary": "${openclaw_model}"
             },
-            "workspace": "~/.openclaw/workspace"
+            "workspace": "~/.openclaw/workspace",
+            "memorySearch": {
+              "enabled": false
+            }
           }
         },
         "gateway": {
