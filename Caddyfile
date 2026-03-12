@@ -1,0 +1,20 @@
+{
+    # Global options
+    auto_https off
+}
+
+# --- Main OpenClaw Dashboard ---
+http://{$DOMAIN_NAME} {
+    reverse_proxy openclaw-gateway:18789 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+}
+
+# --- Uptime Kuma Status Page ---
+http://{$STATUS_DOMAIN} {
+    reverse_proxy uptime-kuma:3001 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+}

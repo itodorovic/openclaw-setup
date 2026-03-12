@@ -1,0 +1,18 @@
+terraform {
+  backend "s3" {
+    # Example for DO Spaces / S3-compatible backend.
+    # Copy to backend.tf and fill values before `terraform init -migrate-state`.
+    #
+    # bucket                      = "openclaw-terraform-state"
+    # key                         = "prod/terraform.tfstate"
+    # region                      = "us-east-1"
+    # endpoint                    = "https://nyc3.digitaloceanspaces.com"
+    # skip_credentials_validation = true
+    # skip_metadata_api_check     = true
+    # skip_region_validation      = true
+    # force_path_style            = false
+    #
+    # Credentials should come from env vars:
+    # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+  }
+}

@@ -1,0 +1,13 @@
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+terraform/backend.tf
+
+# Environment secrets
+.env
+
+# SSH keys (never commit)
+*.pem
+*.key

@@ -1,0 +1,109 @@
+services:
+  # 1. The Core AI Agent
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw@sha256:7b1294f6aa2eb05b2070cc614743f79212313fc294e5de221ada8a2969ea52f6}
+    container_name: openclaw-gateway
+    restart: unless-stopped
+    volumes:
+      - openclaw_data:/home/node/.openclaw
+      - openclaw_home:/home/node
+    environment:
+      - NODE_ENV=production
+      - OPENCLAW_GATEWAY_AUTH_MODE=${OPENCLAW_GATEWAY_AUTH_MODE:-token}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
+      - OPENCLAW_GATEWAY_BIND=lan
+      - PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+
+  # 1b. CLI helper (runs admin commands against the gateway)
+  openclaw-cli:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw@sha256:7b1294f6aa2eb05b2070cc614743f79212313fc294e5de221ada8a2969ea52f6}
+    container_name: openclaw-cli
+    network_mode: "service:openclaw-gateway"
+    volumes:
+      - openclaw_data:/home/node/.openclaw
+      - openclaw_home:/home/node
+    environment:
+      - NODE_ENV=production
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    profiles:
+      - cli
+    entrypoint: ["node", "dist/index.js"]
+
+  # 2. Reverse Proxy & Security
+  caddy-proxy:
+    image: ${CADDY_IMAGE:-caddy@sha256:fce4f15aad23222c0ac78a1220adf63bae7b94355d5ea28eee53910624acedfa}
+    container_name: caddy-proxy
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Ports removed for maximum security; traffic now flows through the Tunnel
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME}
+      - STATUS_DOMAIN=${STATUS_DOMAIN}
+
+  # 3. Secure Cloudflare Tunnel
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0}
+    container_name: cloudflared
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
+
+  # 4. Automated Zero-Downtime Updates
+  watchtower:
+    image: ${WATCHTOWER_IMAGE:-containrrr/watchtower@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038}
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * * # Pull and update at 4 AM every day
+      - DOCKER_API_VERSION=1.40
+
+  # 5. Nightly Encrypted Off-Site Backups
+  volume-backup:
+    image: offen/docker-volume-backup:v2
+    container_name: volume-backup
+    restart: unless-stopped
+    volumes:
+      - openclaw_data:/backup/openclaw_data:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - .env
+    environment:
+      BACKUP_CRON_EXPRESSION: "0 3 * * *"
+      BACKUP_RETENTION_LOCAL: "7"
+
+  # 6. Uptime Monitoring & Alerting
+  uptime-kuma:
+    image: ${UPTIME_KUMA_IMAGE:-louislam/uptime-kuma@sha256:3d632903e6af34139a37f18055c4f1bfd9b7205ae1138f1e5e8940ddc1d176f9}
+    container_name: uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - uptime_kuma_data:/app/data
+
+volumes:
+  openclaw_data:
+  openclaw_home:
+  caddy_data:
+  caddy_config:
+  uptime_kuma_data:

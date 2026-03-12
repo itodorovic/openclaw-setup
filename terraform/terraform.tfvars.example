@@ -1,0 +1,31 @@
+# ── DigitalOcean ────────────────────────────────────────────────────────────
+do_token          = "dop_v1_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+ssh_key_path      = "~/.ssh/id_ed25519.pub"
+# allowed_ssh_cidrs = ["YOUR_PUBLIC_IP/32"]  # auto-detected if omitted
+
+# ── Cloudflare ──────────────────────────────────────────────────────────────
+cloudflare_api_token  = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+cloudflare_account_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+cloudflare_zone_id    = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# ── Domains ─────────────────────────────────────────────────────────────────
+domain_name   = "ai.example.com"
+status_domain = "status.example.com"
+
+# ── Access Control ──────────────────────────────────────────────────────────
+allowed_emails   = ["admin@example.com"]
+email_forward_to = "your.personal@gmail.com"  # Cloudflare Email Routing: admin@example.com → here
+
+# ── Repository ──────────────────────────────────────────────────────────────
+repo_clone_url = "https://github.com/itodorovic/openclaw-setup.git"
+
+# ── R2 Backups (optional — uncomment to enable free encrypted backups) ────
+# Create R2 API token once: Cloudflare Dashboard → R2 → Manage R2 API Tokens
+# Everything else (bucket, endpoint, encryption password) is auto-generated.
+# r2_backup_access_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# r2_backup_secret_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# ── OpenClaw ────────────────────────────────────────────────────────────────
+# openclaw_model     = "openai-codex/gpt-5.4"       # ChatGPT Plus via OAuth (default)
+# browser_enabled    = true
+# extra_apt_packages = "git curl jq"                 # system tools for plugins
