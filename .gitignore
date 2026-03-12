@@ -4,6 +4,12 @@ terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/terraform.tfvars
 terraform/backend.tf
+*.tfvars.json
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 
 # Environment secrets
 .env
@@ -11,3 +17,7 @@ terraform/backend.tf
 # SSH keys (never commit)
 *.pem
 *.key
+
+# IDE
+.vscode/
+.idea/

@@ -25,7 +25,17 @@ No public ports. The Droplet IP is never exposed in DNS — all traffic flows th
    | Token | Source |
    |-------|--------|
    | DigitalOcean | [API tokens](https://docs.digitalocean.com/reference/api/create-personal-access-token/) |
-   | Cloudflare API Token | [Custom token](https://dash.cloudflare.com/profile/api-tokens) with: Account → Cloudflare Tunnel → Edit, Account → Access: Apps and Policies → Edit, Zone → DNS → Edit, Zone → Zone → Read. Add Zone → Email Routing Rules → Edit if using `email_forward_to`. |
+   | Cloudflare API Token | [Custom token](https://dash.cloudflare.com/profile/api-tokens) — see permissions below |
+
+   **Cloudflare API Token permissions** (Create Custom Token):
+   | Scope | Permission | Level | Required? |
+   |-------|-----------|-------|-----------|
+   | Zone | DNS | Edit | Always |
+   | Zone | Zone | Read | Always |
+   | Account | Cloudflare Tunnel | Edit | Always |
+   | Account | Access: Apps and Policies | Edit | Always |
+   | Account | Workers R2 Storage | Edit | If using R2 backups |
+   | Zone | Email Routing Rules | Edit | If using `email_forward_to` |
    | Cloudflare Account ID | Dashboard URL: `https://dash.cloudflare.com/<account_id>` |
    | Cloudflare Zone ID | Domain Overview page |
 

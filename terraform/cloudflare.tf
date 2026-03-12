@@ -93,11 +93,7 @@ resource "cloudflare_zero_trust_access_policy" "status_allow" {
 resource "cloudflare_email_routing_settings" "zone" {
   count   = var.email_forward_to != "" ? 1 : 0
   zone_id = var.cloudflare_zone_id
-}
-
-resource "cloudflare_email_routing_dns" "zone" {
-  count   = var.email_forward_to != "" ? 1 : 0
-  zone_id = var.cloudflare_zone_id
+  enabled = true
 }
 
 resource "cloudflare_email_routing_address" "personal" {
@@ -112,13 +108,13 @@ resource "cloudflare_email_routing_rule" "admin_forward" {
   name    = "Forward to personal email"
   enabled = true
 
-  matchers {
+  matcher {
     type  = "literal"
     field = "to"
     value = var.allowed_emails[0]
   }
 
-  actions {
+  action {
     type  = "forward"
     value = [var.email_forward_to]
   }
