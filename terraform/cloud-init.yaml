@@ -45,7 +45,10 @@ write_files:
           "auth": {
             "mode": "token"
           },
-          "mode": "local"
+          "mode": "local",
+          "controlUi": {
+            "allowedOrigins": ["https://${domain_name}"]
+          }
         },
         "tools": {
           "profile": "coding"
