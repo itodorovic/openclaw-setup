@@ -22,8 +22,8 @@ repo_clone_url = "https://github.com/itodorovic/openclaw-setup.git"
 # ── R2 Backups (optional — uncomment to enable free encrypted backups) ────
 # Create R2 API token once: Cloudflare Dashboard → R2 → Manage R2 API Tokens
 # Everything else (bucket, endpoint, encryption password) is auto-generated.
-# r2_backup_access_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-# r2_backup_secret_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# r2_backup_access_key_id     = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # R2 → Manage API Tokens → Access Key ID
+# r2_backup_secret_access_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # R2 → Manage API Tokens → Secret Access Key
 
 # ── OpenClaw ────────────────────────────────────────────────────────────────
 # openclaw_model     = "openai-codex/gpt-5.4"       # ChatGPT Plus via OAuth (default)

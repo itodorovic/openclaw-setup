@@ -28,7 +28,7 @@ Delete this file once everything is running.
    - `status_domain` — your status subdomain (e.g. `status.example.com`)
    - `allowed_emails` — your email(s) for Zero Trust access
    - `repo_clone_url` — GitHub HTTPS URL for this repo
-5. **Optional**: uncomment `r2_backup_access_key` / `r2_backup_secret_key` for encrypted backups
+5. **Optional**: uncomment `r2_backup_access_key_id` / `r2_backup_secret_access_key` for encrypted backups
 
 ## Deploy
 

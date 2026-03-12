@@ -94,15 +94,15 @@ variable "repo_clone_url" {
 
 # ── Backups (optional — requires R2 API token from Cloudflare dashboard) ───
 
-variable "r2_backup_access_key" {
-  description = "Cloudflare R2 S3-compatible access key ID. Create once at: Cloudflare Dashboard → R2 → Manage R2 API Tokens."
+variable "r2_backup_access_key_id" {
+  description = "Cloudflare R2 Access Key ID. Create once at: Cloudflare Dashboard → R2 → Manage R2 API Tokens."
   type        = string
   sensitive   = true
   default     = ""
 }
 
-variable "r2_backup_secret_key" {
-  description = "Cloudflare R2 S3-compatible secret access key."
+variable "r2_backup_secret_access_key" {
+  description = "Cloudflare R2 Secret Access Key."
   type        = string
   sensitive   = true
   default     = ""

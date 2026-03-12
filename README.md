@@ -70,8 +70,8 @@ Done. Open `terraform output dashboard_url` in your browser.
 | `openclaw_model` | | `openai-codex/gpt-5.4` | Default AI model |
 | `browser_enabled` | | `true` | Enable browser tool + Chromium |
 | `extra_apt_packages` | | `git curl jq` | System packages for gateway |
-| `r2_backup_access_key` | | | R2 S3 access key (enables backups) |
-| `r2_backup_secret_key` | | | R2 S3 secret key |
+| `r2_backup_access_key_id` | | | R2 Access Key ID (enables backups) |
+| `r2_backup_secret_access_key` | | | R2 Secret Access Key |
 
 ## Credential Rotation
 

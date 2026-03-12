@@ -127,7 +127,7 @@ resource "cloudflare_email_routing_rule" "admin_forward" {
 # --- R2 Backup Bucket (free tier: 10 GB) ---
 
 resource "cloudflare_r2_bucket" "backups" {
-  count      = var.r2_backup_access_key != "" ? 1 : 0
+  count      = var.r2_backup_access_key_id != "" ? 1 : 0
   account_id = var.cloudflare_account_id
   name       = "openclaw-backups"
   location   = "EEUR"

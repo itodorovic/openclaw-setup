@@ -19,12 +19,12 @@ resource "digitalocean_droplet" "openclaw" {
     cloudflare_tunnel_token = cloudflare_zero_trust_tunnel_cloudflared.openclaw.tunnel_token
     gateway_auth_mode       = "token"
     gateway_token           = random_password.gateway_token.result
-    s3_bucket               = var.r2_backup_access_key != "" ? "openclaw-backups" : ""
-    s3_access_key           = var.r2_backup_access_key
-    s3_secret_key           = var.r2_backup_secret_key
+    s3_bucket               = var.r2_backup_access_key_id != "" ? "openclaw-backups" : ""
+    s3_access_key           = var.r2_backup_access_key_id
+    s3_secret_key           = var.r2_backup_secret_access_key
     s3_region               = "auto"
-    s3_endpoint             = var.r2_backup_access_key != "" ? "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com" : ""
-    backup_password         = var.r2_backup_access_key != "" ? random_password.backup_passphrase.result : ""
+    s3_endpoint             = var.r2_backup_access_key_id != "" ? "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com" : ""
+    backup_password         = var.r2_backup_access_key_id != "" ? random_password.backup_passphrase.result : ""
     openclaw_model          = var.openclaw_model
     browser_enabled         = var.browser_enabled ? "true" : "false"
     extra_apt_packages      = var.extra_apt_packages
