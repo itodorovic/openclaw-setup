@@ -11,6 +11,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared" "openclaw" {
 resource "cloudflare_zero_trust_tunnel_cloudflared_config" "openclaw" {
   account_id = var.cloudflare_account_id
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.openclaw.id
+  depends_on = [terraform_data.wait_for_cloudinit]
 
   config {
     ingress_rule {
@@ -31,19 +32,21 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "openclaw" {
 # --- DNS (CNAME to tunnel — Droplet IP never exposed) ---
 
 resource "cloudflare_record" "dashboard" {
-  zone_id = var.cloudflare_zone_id
-  name    = var.domain_name
-  type    = "CNAME"
-  content = "${cloudflare_zero_trust_tunnel_cloudflared.openclaw.id}.cfargotunnel.com"
-  proxied = true
+  zone_id    = var.cloudflare_zone_id
+  name       = var.domain_name
+  type       = "CNAME"
+  content    = "${cloudflare_zero_trust_tunnel_cloudflared.openclaw.id}.cfargotunnel.com"
+  proxied    = true
+  depends_on = [terraform_data.wait_for_cloudinit]
 }
 
 resource "cloudflare_record" "status" {
-  zone_id = var.cloudflare_zone_id
-  name    = var.status_domain
-  type    = "CNAME"
-  content = "${cloudflare_zero_trust_tunnel_cloudflared.openclaw.id}.cfargotunnel.com"
-  proxied = true
+  zone_id    = var.cloudflare_zone_id
+  name       = var.status_domain
+  type       = "CNAME"
+  content    = "${cloudflare_zero_trust_tunnel_cloudflared.openclaw.id}.cfargotunnel.com"
+  proxied    = true
+  depends_on = [terraform_data.wait_for_cloudinit]
 }
 
 # --- Zero Trust Access (email-gated SSO before any request reaches server) ---

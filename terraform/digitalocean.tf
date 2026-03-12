@@ -53,3 +53,20 @@ resource "digitalocean_firewall" "openclaw" {
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 }
+
+# ── Health gate: wait for cloud-init before creating DNS/tunnel config ──────
+# Prevents Error 1033 (tunnel not connected) during initial deploy.
+
+resource "terraform_data" "wait_for_cloudinit" {
+  depends_on = [digitalocean_droplet.openclaw, digitalocean_firewall.openclaw]
+
+  provisioner "remote-exec" {
+    inline = ["cloud-init status --wait"]
+    connection {
+      type        = "ssh"
+      host        = digitalocean_droplet.openclaw.ipv4_address
+      user        = "root"
+      private_key = file(local.ssh_private_key_path)
+    }
+  }
+}
