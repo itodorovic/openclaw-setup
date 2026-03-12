@@ -36,6 +36,9 @@ No public ports. The Droplet IP is never exposed in DNS — all traffic flows th
    | Account | Access: Apps and Policies | Edit | Always |
    | Account | Workers R2 Storage | Edit | If using R2 backups |
    | Zone | Email Routing Rules | Edit | If using `email_forward_to` |
+   | Account | Email Routing Addresses | Edit | If using `email_forward_to` |
+
+   > **Note:** If using `email_forward_to`, you must also enable Email Routing on your zone **manually** before running `terraform apply`: Cloudflare Dashboard → your domain → Email → Email Routing → Enable. The enable endpoint does not support API tokens (Cloudflare limitation).
    | Cloudflare Account ID | Dashboard URL: `https://dash.cloudflare.com/<account_id>` |
    | Cloudflare Zone ID | Domain Overview page |
 

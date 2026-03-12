@@ -89,12 +89,9 @@ resource "cloudflare_zero_trust_access_policy" "status_allow" {
 }
 
 # --- Email Routing (free — forwards admin@domain → personal email) ---
-
-resource "cloudflare_email_routing_settings" "zone" {
-  count   = var.email_forward_to != "" ? 1 : 0
-  zone_id = var.cloudflare_zone_id
-  enabled = true
-}
+# NOTE: Email Routing must be enabled manually in the Cloudflare dashboard
+# (domain → Email → Email Routing → Enable) because the API endpoint does not
+# support API token authentication. This is a one-time manual step.
 
 resource "cloudflare_email_routing_address" "personal" {
   count      = var.email_forward_to != "" ? 1 : 0
