@@ -43,7 +43,12 @@ write_files:
         "gateway": {
           "bind": "lan",
           "auth": {
-            "mode": "token"
+            "mode": "token",
+            "rateLimit": {
+              "maxAttempts": 10,
+              "windowMs": 60000,
+              "lockoutMs": 300000
+            }
           },
           "mode": "local",
           "controlUi": {
@@ -59,6 +64,12 @@ write_files:
         },
         "browser": {
           "enabled": ${browser_enabled}
+        },
+        "discovery": {
+          "mdns": { "mode": "off" }
+        },
+        "logging": {
+          "redactSensitive": "tools"
         }
       }
 
