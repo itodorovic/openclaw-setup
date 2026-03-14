@@ -16,10 +16,11 @@ show_menu() {
   echo "  3) Approve pending device"
   echo "  4) Remove paired device"
   echo "  5) Clear all devices"
-  echo "  6) Gateway logs (last 50 lines)"
-  echo "  7) Container status"
-  echo "  8) OpenClaw CLI shell"
-  echo "  9) System shell (bash)"
+  echo "  6) Restart gateway"
+  echo "  7) Gateway logs (last 50 lines)"
+  echo "  8) Container status"
+  echo "  9) OpenClaw CLI shell"
+  echo "  s) System shell (bash)"
   echo "  0) Exit"
   echo ""
   printf "  Choice: "
@@ -155,6 +156,30 @@ clear_all() {
   fi
 }
 
+restart_gateway() {
+  echo ""
+  echo "  Restarting gateway..."
+  if command -v docker &>/dev/null || [ -S /var/run/docker.sock ]; then
+    # Install docker CLI if not present (lightweight, just the client)
+    if ! command -v docker &>/dev/null; then
+      echo "  (installing docker CLI...)"
+      curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | tar xz --strip-components=1 -C /usr/local/bin docker/docker 2>/dev/null
+    fi
+    docker restart openclaw-gateway
+    echo "  Gateway restarted. Waiting for health..."
+    sleep 10
+    for i in $(seq 1 12); do
+      status=$(docker inspect openclaw-gateway --format '{{.State.Health.Status}}' 2>/dev/null)
+      echo "  [$i] $status"
+      if [ "$status" = "healthy" ]; then echo "  Gateway is healthy."; return; fi
+      sleep 5
+    done
+    echo "  Gateway did not become healthy in time."
+  else
+    echo "  Docker socket not available."
+  fi
+}
+
 gateway_logs() {
   echo ""
   echo "  Gateway logs (last 50 lines):"
@@ -173,12 +198,12 @@ container_status() {
   echo ""
   echo "  Container status:"
   echo "  ──────────────────"
-  # Use the healthz endpoint since we share the gateway network
-  printf "  Gateway health: "
-  node -e "fetch('http://127.0.0.1:18789/healthz').then(r=>r.json()).then(j=>console.log(JSON.stringify(j))).catch(e=>console.log('unreachable: '+e.message))"
-  echo ""
-  echo "  Volume files:"
-  ls -la /home/node/.openclaw/ 2>/dev/null || echo "  (volume not accessible)"
+  if command -v docker &>/dev/null; then
+    docker ps --format 'table {{.Names}}\t{{.Status}}'
+  else
+    printf "  Gateway health: "
+    node -e "fetch('http://127.0.0.1:18789/healthz').then(r=>r.json()).then(j=>console.log(JSON.stringify(j))).catch(e=>console.log('unreachable: '+e.message))"
+  fi
 }
 
 cli_shell() {
@@ -198,10 +223,11 @@ while true; do
     3) approve_device ;;
     4) remove_device ;;
     5) clear_all ;;
-    6) gateway_logs ;;
-    7) container_status ;;
-    8) cli_shell ;;
-    9) echo "  Type 'exit' to return to menu."; bash ;;
+    6) restart_gateway ;;
+    7) gateway_logs ;;
+    8) container_status ;;
+    9) cli_shell ;;
+    s) echo "  Type 'exit' to return to menu."; bash ;;
     0) echo "  Goodbye."; exit 0 ;;
     *) echo "  Invalid choice." ;;
   esac
