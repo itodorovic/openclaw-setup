@@ -38,6 +38,7 @@ services:
       - openclaw_home:/home/node
       - ./scripts/admin:/admin:ro
       - /usr/local/bin/ttyd:/usr/local/bin/ttyd:ro
+      - /usr/bin/docker:/usr/bin/docker:ro
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - NODE_ENV=production

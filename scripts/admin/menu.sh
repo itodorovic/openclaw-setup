@@ -162,13 +162,8 @@ clear_all() {
 
 ensure_docker() {
   if ! command -v docker &>/dev/null; then
-    if [ -S /var/run/docker.sock ]; then
-      echo "  (installing docker CLI...)"
-      curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | tar xz --strip-components=1 -C /usr/local/bin docker/docker 2>/dev/null
-    else
-      echo "  Docker socket not available."
-      return 1
-    fi
+    echo "  Docker CLI not available. Check volume mounts."
+    return 1
   fi
 }
 
