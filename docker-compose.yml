@@ -4,6 +4,8 @@ services:
     image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-gateway
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
       - openclaw_data:/home/node/.openclaw
       - openclaw_home:/home/node
@@ -32,6 +34,8 @@ services:
     image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-admin
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     network_mode: "service:openclaw-gateway"
     volumes:
       - openclaw_data:/home/node/.openclaw

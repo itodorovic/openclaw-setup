@@ -16,8 +16,9 @@ show_menu() {
   echo "  2) Devices (pair, list, remove)"
   echo "  3) Restart gateway"
   echo "  4) OpenAI Codex OAuth login"
-  echo "  5) Lazydocker (logs + monitor)"
-  echo "  6) OpenClaw CLI shell"
+  echo "  5) Update OpenClaw"
+  echo "  6) Lazydocker (logs + monitor)"
+  echo "  7) OpenClaw CLI shell"
   echo "  s) System shell (bash)"
   echo "  0) Exit"
   echo ""
@@ -249,6 +250,41 @@ lazydocker_tui() {
   fi
 }
 
+update_openclaw() {
+  echo ""
+  echo "  Update OpenClaw"
+  echo "  ────────────────"
+  if ! ensure_docker; then return; fi
+
+  CURRENT=$(docker inspect openclaw-gateway --format '{{.Image}}' 2>/dev/null | cut -c1-19)
+  echo "  Current image: $CURRENT"
+  echo ""
+  printf "  Pull latest and restart? (y/N): "
+  read -r confirm
+  case "$confirm" in
+    y|Y)
+      echo "  Pulling latest image..."
+      docker compose -f /root/openclaw-setup/docker-compose.yml pull openclaw-gateway
+      echo "  Recreating gateway + admin..."
+      docker compose -f /root/openclaw-setup/docker-compose.yml up -d openclaw-gateway openclaw-admin
+      echo "  Waiting for health..."
+      sleep 10
+      for i in $(seq 1 12); do
+        status=$(docker inspect openclaw-gateway --format '{{.State.Health.Status}}' 2>/dev/null)
+        echo "  [$i] $status"
+        [ "$status" = "healthy" ] && break
+        sleep 5
+      done
+      echo "  Reinstalling packages..."
+      /root/.openclaw-init-packages.sh 2>&1 || true
+      NEW=$(docker inspect openclaw-gateway --format '{{.Image}}' 2>/dev/null | cut -c1-19)
+      echo ""
+      echo "  Done. Image: $NEW"
+      ;;
+    *) echo "  Cancelled." ;;
+  esac
+}
+
 cli_shell() {
   echo ""
   echo "  Starting OpenClaw CLI... (type 'exit' to return to menu)"
@@ -266,8 +302,9 @@ while true; do
     2) devices_menu ;;
     3) restart_gateway ;;
     4) openai_login ;;
-    5) lazydocker_tui ;;
-    6) cli_shell ;;
+    5) update_openclaw ;;
+    6) lazydocker_tui ;;
+    7) cli_shell ;;
     s) echo "  Type 'exit' to return to menu."; bash ;;
     0) echo "  Goodbye."; exit 0 ;;
     *) echo "  Invalid choice." ;;
