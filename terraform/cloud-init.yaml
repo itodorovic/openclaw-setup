@@ -204,7 +204,7 @@ runcmd:
     chmod 644 /etc/cron.d/openclaw-reinstall-packages
 
   # 14. Cloudflared will be restarted by Terraform after tunnel config is created.
-  # No timer needed — Terraform handles this via a remote-exec provisioner
+  # No timer needed -- Terraform handles this via a remote-exec provisioner
   # that runs AFTER the tunnel ingress config is pushed to Cloudflare.
 
   # 15. Scrub secrets from cloud-init logs
