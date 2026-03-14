@@ -19,6 +19,10 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "openclaw" {
       service  = "http://caddy-proxy:80"
     }
     ingress_rule {
+      hostname = var.admin_domain
+      service  = "http://caddy-proxy:80"
+    }
+    ingress_rule {
       hostname = var.status_domain
       service  = "http://caddy-proxy:80"
     }
@@ -49,6 +53,15 @@ resource "cloudflare_record" "status" {
   depends_on = [terraform_data.wait_for_cloudinit]
 }
 
+resource "cloudflare_record" "admin" {
+  zone_id    = var.cloudflare_zone_id
+  name       = var.admin_domain
+  type       = "CNAME"
+  content    = "${cloudflare_zero_trust_tunnel_cloudflared.openclaw.id}.cfargotunnel.com"
+  proxied    = true
+  depends_on = [terraform_data.wait_for_cloudinit]
+}
+
 # --- Zero Trust Access (email-gated SSO before any request reaches server) ---
 
 resource "cloudflare_zero_trust_access_application" "dashboard" {
@@ -67,6 +80,14 @@ resource "cloudflare_zero_trust_access_application" "status" {
   type             = "self_hosted"
 }
 
+resource "cloudflare_zero_trust_access_application" "admin" {
+  zone_id          = var.cloudflare_zone_id
+  name             = "OpenClaw Admin"
+  domain           = var.admin_domain
+  session_duration = var.access_session_duration
+  type             = "self_hosted"
+}
+
 resource "cloudflare_zero_trust_access_policy" "dashboard_allow" {
   application_id = cloudflare_zero_trust_access_application.dashboard.id
   zone_id        = var.cloudflare_zone_id
@@ -81,6 +102,18 @@ resource "cloudflare_zero_trust_access_policy" "dashboard_allow" {
 
 resource "cloudflare_zero_trust_access_policy" "status_allow" {
   application_id = cloudflare_zero_trust_access_application.status.id
+  zone_id        = var.cloudflare_zone_id
+  name           = "Allow Admin"
+  precedence     = 1
+  decision       = "allow"
+
+  include {
+    email = local.access_emails
+  }
+}
+
+resource "cloudflare_zero_trust_access_policy" "admin_allow" {
+  application_id = cloudflare_zero_trust_access_application.admin.id
   zone_id        = var.cloudflare_zone_id
   name           = "Allow Admin"
   precedence     = 1

@@ -66,6 +66,11 @@ variable "status_domain" {
   type        = string
 }
 
+variable "admin_domain" {
+  description = "FQDN for the admin console (e.g., admin.example.com)."
+  type        = string
+}
+
 # ── Access Control ──────────────────────────────────────────────────────────
 
 variable "allowed_emails" {

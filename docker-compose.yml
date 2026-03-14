@@ -27,25 +27,24 @@ services:
       start_period: 30s
       retries: 5
 
-  # 1b. CLI helper (runs admin commands against the gateway)
-  openclaw-cli:
+  # 1b. Admin Console (web terminal for device management & CLI access)
+  openclaw-admin:
     image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
-    container_name: openclaw-cli
+    container_name: openclaw-admin
+    restart: unless-stopped
     network_mode: "service:openclaw-gateway"
     volumes:
       - openclaw_data:/home/node/.openclaw
       - openclaw_home:/home/node
+      - ./scripts/admin:/admin:ro
+      - /usr/local/bin/ttyd:/usr/local/bin/ttyd:ro
     environment:
       - NODE_ENV=production
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
-    cap_drop:
-      - NET_RAW
-      - NET_ADMIN
     security_opt:
       - no-new-privileges:true
-    profiles:
-      - cli
-    entrypoint: ["node", "dist/index.js"]
+    mem_limit: 128m
+    entrypoint: ["/usr/local/bin/ttyd", "-p", "7681", "-W", "bash", "/admin/menu.sh"]
 
   # 2. Reverse Proxy & Security
   caddy-proxy:
@@ -67,6 +66,7 @@ services:
       - caddy_config:/config
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN}
       - STATUS_DOMAIN=${STATUS_DOMAIN}
 
   # 3. Secure Cloudflare Tunnel

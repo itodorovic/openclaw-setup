@@ -11,6 +11,14 @@ http://{$DOMAIN_NAME} {
     }
 }
 
+# --- Admin Console ---
+http://{$ADMIN_DOMAIN} {
+    reverse_proxy openclaw-gateway:7681 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+}
+
 # --- Uptime Kuma Status Page ---
 http://{$STATUS_DOMAIN} {
     reverse_proxy uptime-kuma:3001 {

@@ -15,6 +15,7 @@ resource "digitalocean_droplet" "openclaw" {
   user_data = templatefile("${path.module}/cloud-init.yaml", {
     repo_clone_url          = var.repo_clone_url
     domain_name             = var.domain_name
+    admin_domain            = var.admin_domain
     status_domain           = var.status_domain
     cloudflare_tunnel_token = cloudflare_zero_trust_tunnel_cloudflared.openclaw.tunnel_token
     gateway_auth_mode       = "token"

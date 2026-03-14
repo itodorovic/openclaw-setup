@@ -11,6 +11,7 @@ cloudflare_zone_id    = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # ── Domains ─────────────────────────────────────────────────────────────────
 domain_name   = "ai.example.com"
 status_domain = "status.example.com"
+admin_domain   = "admin.example.com"
 
 # ── Access Control ──────────────────────────────────────────────────────────
 # email_forward_to is automatically added to the Access policy if set
