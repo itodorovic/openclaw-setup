@@ -187,8 +187,19 @@ remove_device() {
 
 COMPOSE_FILE="/root/openclaw-setup/docker-compose.yml"
 
+_fetch_r2_env() {
+  # Read S3 + GPG credentials from the volume-backup container (once per call)
+  if [ -z "${_R2_ENV_LOADED:-}" ]; then
+    eval "$(docker exec volume-backup env 2>/dev/null \
+      | grep -E '^(AWS_|GPG_PASSPHRASE=)' \
+      | sed "s/'/'\\\\''/g; s/=\(.*\)/='\1'/")"
+    _R2_ENV_LOADED=1
+  fi
+}
+
 backups_menu() {
   if ! ensure_docker; then return; fi
+  _R2_ENV_LOADED=""
   while true; do
     echo ""
     echo "  ── Backups ──────────────────────"
@@ -216,21 +227,15 @@ list_backups() {
   echo ""
   echo "  Remote backups (R2):"
   echo "  ────────────────────"
-  # Extract uploaded filenames from container logs
-  UPLOADS=$(docker logs volume-backup 2>&1 \
-    | grep -oP 'Uploaded a copy of backup `/tmp/\K[^`]+' \
-    | sort -u)
-  if [ -z "$UPLOADS" ]; then
-    echo "  No backups found in logs."
+  _fetch_r2_env
+  OUTPUT=$(docker run --rm \
+    -e "MC_HOST_r2=${AWS_ENDPOINT_PROTO:-https}://${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}@${AWS_ENDPOINT}" \
+    minio/mc ls "r2/${AWS_S3_BUCKET_NAME}/" 2>&1)
+  if [ -z "$OUTPUT" ]; then
+    echo "  No backups found."
     return
   fi
-  IDX=0
-  while IFS= read -r f; do
-    IDX=$((IDX + 1))
-    echo "  $IDX) $f"
-  done <<< "$UPLOADS"
-  echo ""
-  echo "  Total: $IDX backup(s)"
+  echo "$OUTPUT" | sed 's/^/  /'
 }
 
 last_backup_status() {
@@ -260,11 +265,13 @@ restore_backup() {
   echo "  ⚠ Restore will REPLACE current OpenClaw data."
   echo ""
 
-  # List available backups from logs
+  # List available backups from R2
   echo "  Fetching backup list..."
-  BACKUP_LIST=$(docker logs volume-backup 2>&1 \
-    | grep -oP 'Uploaded a copy of backup `/tmp/\K[^`]+' \
-    | sort -u)
+  _fetch_r2_env
+  BACKUP_LIST=$(docker run --rm \
+    -e "MC_HOST_r2=${AWS_ENDPOINT_PROTO:-https}://${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}@${AWS_ENDPOINT}" \
+    minio/mc ls "r2/${AWS_S3_BUCKET_NAME}/" 2>&1 \
+    | awk '{print $NF}' | grep -E '\.tar\.(gz|zst)(\.gpg)?$' | sort)
 
   if [ -z "$BACKUP_LIST" ]; then
     echo "  No backups found in logs. Enter filename manually."
@@ -296,11 +303,6 @@ restore_backup() {
   printf "  Confirm restore? This will stop the gateway. (yes/N): "
   read -r confirm
   [ "$confirm" != "yes" ] && echo "  Cancelled." && return
-
-  # Read S3 + GPG credentials from the volume-backup container
-  eval "$(docker exec volume-backup env 2>/dev/null \
-    | grep -E '^(AWS_|GPG_PASSPHRASE=)' \
-    | sed "s/'/'\\\\''/g; s/=\\(.*\\)/='\\1'/")"
 
   echo ""
   echo "  [1/5] Stopping gateway + admin..."
