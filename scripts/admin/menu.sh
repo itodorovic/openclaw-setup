@@ -69,16 +69,24 @@ list_pending() {
 }
 
 approve_device() {
-  list_pending
   echo ""
-  printf "  Enter device ID prefix to approve (or 'all'): "
+  printf "  Reading pending devices and approving in one step...\n"
+  printf "  Enter device ID prefix to approve (or 'all', or empty to list first): "
   read -r prefix
-  [ -z "$prefix" ] && return
+
+  if [ -z "$prefix" ]; then
+    list_pending
+    echo ""
+    printf "  Enter device ID prefix to approve (or 'all'): "
+    read -r prefix
+    [ -z "$prefix" ] && return
+  fi
 
   node -e "
     const fs = require('fs');
     const pPath = '$DEVICES_DIR/pending.json';
     const aPath = '$DEVICES_DIR/paired.json';
+    // Read both files atomically in one step
     const pending = JSON.parse(fs.readFileSync(pPath, 'utf8'));
     const paired = JSON.parse(fs.readFileSync(aPath, 'utf8'));
     const prefix = '$prefix';
@@ -87,7 +95,11 @@ approve_device() {
       ? Object.keys(pending)
       : Object.keys(pending).filter(k => k.startsWith(prefix));
 
-    if (!matches.length) { console.log('  No matching pending devices.'); process.exit(1); }
+    if (!matches.length) {
+      console.log('  No matching pending devices.');
+      console.log('  (The gateway may have cleared the request — try clicking Connect in the dashboard first, then immediately run approve with \"all\")');
+      process.exit(1);
+    }
 
     matches.forEach(id => {
       const dev = pending[id];
