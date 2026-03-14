@@ -7,7 +7,7 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - openclaw_data:/home/node/.openclaw
+      - ./data:/home/node/.openclaw
       - openclaw_home:/home/node
     environment:
       - NODE_ENV=production
@@ -38,7 +38,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=false"
     network_mode: "service:openclaw-gateway"
     volumes:
-      - openclaw_data:/home/node/.openclaw
+      - ./data:/home/node/.openclaw
       - openclaw_home:/home/node
       - ./scripts/admin:/admin:ro
       - /usr/local/bin/ttyd:/usr/local/bin/ttyd:ro
@@ -112,7 +112,7 @@ services:
     container_name: volume-backup
     restart: unless-stopped
     volumes:
-      - openclaw_data:/backup/openclaw_data:ro
+      - ./data:/backup/openclaw_data:ro
       - /var/run/docker.sock:/var/run/docker.sock
     env_file:
       - .env
@@ -138,7 +138,6 @@ services:
       - DOZZLE_NO_ANALYTICS=true
 
 volumes:
-  openclaw_data:
   openclaw_home:
   caddy_data:
   caddy_config:

@@ -101,7 +101,22 @@ s) System shell
 
 ## Backups
 
-When R2 credentials are configured, the `volume-backup` container creates a **GPG-encrypted** backup of the `openclaw_data` volume every night at 3 AM and uploads it to Cloudflare R2. The backup contains the complete agent state:
+When R2 credentials are configured, the `volume-backup` container creates a **GPG-encrypted** backup of the `data/` directory every night at 3 AM and uploads it to Cloudflare R2.
+
+### Data directory
+
+Agent state lives in `./data/` (bind-mounted into containers as `/home/node/.openclaw`). This is a host directory, not a Docker named volume — you can browse, edit, and git-track files directly:
+
+```bash
+ssh root@<droplet-ip>
+ls /root/openclaw-setup/data/              # browse agent state
+cat /root/openclaw-setup/data/openclaw.json # view config
+vim /root/openclaw-setup/data/workspace/SOUL.md  # edit personality
+```
+
+### What's backed up
+
+The backup contains the complete agent state:
 
 | Path | What it is |
 |------|------------|

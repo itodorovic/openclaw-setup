@@ -323,7 +323,7 @@ restore_backup() {
     docker run --rm \
       -e GPG_PASSPHRASE="$GPG_PASSPHRASE" \
       -v restore_tmp:/tmp/restore \
-      -v openclaw-setup_openclaw_data:/data \
+      -v /root/openclaw-setup/data:/data \
       alpine sh -c '
         apk add --no-cache gnupg >/dev/null 2>&1
         gpg --batch --yes --passphrase "$GPG_PASSPHRASE" \
@@ -333,7 +333,7 @@ restore_backup() {
   else
     docker run --rm \
       -v restore_tmp:/tmp/restore \
-      -v openclaw-setup_openclaw_data:/data \
+      -v /root/openclaw-setup/data:/data \
       alpine sh -c '
         tar xzf /tmp/restore/backup.archive -C /
         chown -R 1000:1000 /data

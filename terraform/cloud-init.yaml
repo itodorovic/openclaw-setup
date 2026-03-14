@@ -162,23 +162,17 @@ runcmd:
   # 7. Pull images and create volumes before writing config
   - cd /root/openclaw-setup && docker compose pull
 
-  # 8. Start gateway briefly to initialize volume structure, then stop
-  - cd /root/openclaw-setup && docker compose up -d openclaw-gateway
-  - sleep 10
-  - cd /root/openclaw-setup && docker compose stop openclaw-gateway
+  # 8. Create data directory for bind mount and seed config
+  - mkdir -p /root/openclaw-setup/data
+  - cp /root/.openclaw-config.json /root/openclaw-setup/data/openclaw.json
+  - chmod 600 /root/openclaw-setup/data/openclaw.json
+  - chmod 700 /root/openclaw-setup/data
+  - chown -R 1000:1000 /root/openclaw-setup/data
 
-  # 9. Copy openclaw.json into the named volume and lock down permissions
-  - |
-    VOLUME_PATH=$(docker volume inspect openclaw-setup_openclaw_data --format '{{ .Mountpoint }}')
-    cp /root/.openclaw-config.json "$VOLUME_PATH/openclaw.json"
-    chmod 600 "$VOLUME_PATH/openclaw.json"
-    chmod 700 "$VOLUME_PATH"
-    chown -R 1000:1000 "$VOLUME_PATH"
-
-  # 10. Launch the full stack
+  # 9. Launch the full stack
   - cd /root/openclaw-setup && docker compose up -d
 
-  # 11. Install extra apt packages + Chromium browser (if enabled)
+  # 10. Install extra apt packages + Chromium browser (if enabled)
   - |
     echo "Waiting for gateway to be healthy before installing packages..."
     for i in $(seq 1 30); do
@@ -189,12 +183,12 @@ runcmd:
     done
   - /root/.openclaw-init-packages.sh
 
-  # 12. Post-boot health check
+  # 11. Post-boot health check
   - |
     sleep 15
     docker exec openclaw-gateway node /app/dist/index.js doctor 2>&1 || true
 
-  # 13. Install init-packages script as a cron job to survive Watchtower recreates
+  # 12. Install init-packages script as a cron job to survive Watchtower recreates
   - |
     cat > /etc/cron.d/openclaw-reinstall-packages <<'CRON'
     # After Watchtower recreates the gateway, re-apply apt packages + Chromium.
@@ -204,11 +198,11 @@ runcmd:
     sed -i 's/^    //' /etc/cron.d/openclaw-reinstall-packages
     chmod 644 /etc/cron.d/openclaw-reinstall-packages
 
-  # 14. Cloudflared will be restarted by Terraform after tunnel config is created.
+  # 13. Cloudflared will be restarted by Terraform after tunnel config is created.
   # No timer needed -- Terraform handles this via a remote-exec provisioner
   # that runs AFTER the tunnel ingress config is pushed to Cloudflare.
 
-  # 15. Scrub secrets from cloud-init logs
+  # 14. Scrub secrets from cloud-init logs
   - truncate -s 0 /var/log/cloud-init-output.log
   - sed -i '/TUNNEL_TOKEN\|GATEWAY_TOKEN\|SECRET_ACCESS_KEY\|GPG_PASSPHRASE/d' /var/log/cloud-init.log
   - rm -f /root/.openclaw-env /root/.openclaw-config.json
