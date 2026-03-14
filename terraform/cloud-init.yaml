@@ -143,7 +143,7 @@ runcmd:
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
   # 3b. Set Docker GID in .env template (for admin container group_add)
-  - sed -i "s/__DOCKER_GID__/$(getent group docker | cut -d: -f3)/" /root/.openclaw-env
+  - 'sed -i "s/__DOCKER_GID__/$(getent group docker | cut -d: -f3)/" /root/.openclaw-env'
 
   # 4. Clone repository
   - bash -lc 'if [ ! -d /root/openclaw-setup/.git ]; then git clone ${repo_clone_url} /root/openclaw-setup; else git -C /root/openclaw-setup pull --ff-only; fi'
