@@ -26,7 +26,8 @@ resource "digitalocean_droplet" "openclaw" {
     s3_region               = "auto"
     s3_endpoint             = var.r2_backup_access_key_id != "" ? "${var.cloudflare_account_id}.r2.cloudflarestorage.com" : ""
     backup_password         = var.r2_backup_access_key_id != "" ? random_password.backup_passphrase.result : ""
-    openclaw_model          = var.openclaw_model
+    openclaw_config_json    = indent(6, jsonencode(local.openclaw_seed_config))
+    agent_team_json         = indent(6, jsonencode(local.agent_team_seed))
     browser_enabled         = var.browser_enabled ? "true" : "false"
     extra_apt_packages      = var.extra_apt_packages
   })

@@ -76,10 +76,10 @@ Terraform creates the droplet, waits for cloud-init to finish, pushes the tunnel
 
 Open `https://admin.example.com` — the admin console handles all post-deploy actions:
 
-1. **Dashboard URL** — Option 1. Generates a tokenized URL to open in your browser (auto-pairs, no approval needed).
-2. **OpenAI Codex OAuth** — Option 5. Follow the URL, sign in, paste the redirect URL back.
-3. **Restart gateway** — Option 4. Picks up the new OAuth credentials.
-4. Open the dashboard URL from step 1. You're in.
+1. **OpenAI Codex OAuth** — Option 5. Follow the URL, sign in, paste the redirect URL back.
+2. **Restart gateway** — Option 4. Picks up the new OAuth credentials.
+3. **Dashboard URL** — Option 1. Generates a tokenized URL to open in your browser (auto-pairs, no approval needed).
+4. Open the dashboard URL from step 3. You're in.
 
 ## Admin Console
 
@@ -99,6 +99,66 @@ s) System shell
 
 > **Updates:** Watchtower auto-updates infrastructure containers (Caddy, cloudflared, Dozzle) but **not** OpenClaw itself. Use option 6 to update OpenClaw on your own schedule. Ignore the "Update" button in the dashboard — it doesn't work in a containerized deployment.
 
+## Multi-Agent Teams
+
+This repo now supports **single-agent** and **multi-agent** OpenClaw deployments from the same Terraform code.
+
+### What gets configured per agent
+
+Each agent can have its own:
+
+- workspace (`~/.openclaw/workspace-<agentId>` by default)
+- `agentDir` (`~/.openclaw/agents/<agentId>/agent` by default)
+- model and fallback models
+- tool profile / tool allow / deny policy
+- sandbox mode, scope, and workspace access
+- identity metadata (name, theme, emoji)
+- channel/account/peer routing bindings
+
+Cloud-init seeds missing workspace files (`SOUL.md`, `AGENTS.md`, `USER.md`, `TOOLS.md`, `IDENTITY.md`) for every configured agent and creates the matching `agents/<id>/agent` and `sessions/` directories in `./data/`.
+
+### Example team
+
+```hcl
+agent_team = [
+  {
+    id            = "main"
+    default       = true
+    name          = "Main"
+    model         = "openai-codex/gpt-5.4"
+    identity_name = "Djordje"
+    identity_theme = "calm and reliable manager for coding agents"
+    identity_emoji = "🛠️"
+    bindings = [
+      { channel = "webchat" },
+    ]
+  },
+  {
+    id                       = "reviewer"
+    name                     = "Reviewer"
+    model                    = "anthropic/claude-opus-4-6"
+    tool_profile             = "coding"
+    tools_deny               = ["exec"]
+    sandbox_mode             = "all"
+    sandbox_scope            = "agent"
+    sandbox_workspace_access = "ro"
+    persona                  = "You are a careful reviewer agent focused on critique, safety, and architecture."
+    bindings = [
+      { channel = "telegram", account_id = "reviewer" },
+    ]
+  },
+]
+
+enable_agent_to_agent = true
+```
+
+### Notes
+
+- If `agent_team` is empty, deployment falls back to a normal single-agent `main` setup.
+- `bindings` are written into `openclaw.json`, so routing hot-reloads inside OpenClaw without a full reprovision.
+- Existing `./data/openclaw.json` is **not overwritten** on subsequent cloud-init replays; the seed file is only copied on first boot.
+- If you later hand-edit `./data/openclaw.json`, that becomes the live source of truth until you intentionally replace it.
+
 ## Backups
 
 When R2 credentials are configured, the `volume-backup` container creates a **GPG-encrypted** backup of the `data/` directory every night at 3 AM and uploads it to Cloudflare R2.
@@ -109,9 +169,10 @@ Agent state lives in `./data/` (bind-mounted into containers as `/home/node/.ope
 
 ```bash
 ssh root@<droplet-ip>
-ls /root/openclaw-setup/data/              # browse agent state
-cat /root/openclaw-setup/data/openclaw.json # view config
-vim /root/openclaw-setup/data/workspace/SOUL.md  # edit personality
+ls /root/openclaw-setup/data/                           # browse agent state
+cat /root/openclaw-setup/data/openclaw.json            # view config
+vim /root/openclaw-setup/data/workspace/SOUL.md        # edit main-agent personality
+vim /root/openclaw-setup/data/workspace-reviewer/SOUL.md # edit a secondary agent personality
 ```
 
 ### What's backed up
@@ -120,17 +181,17 @@ The backup contains the complete agent state:
 
 | Path | What it is |
 |------|------------|
-| `openclaw.json` | Main configuration (model, gateway settings, tools, sessions) |
+| `openclaw.json` | Main configuration (agents, bindings, model, gateway settings, tools, sessions) |
 | `agents/*/agent/auth-profiles.json` | OAuth credentials (e.g. OpenAI Codex tokens) |
 | `agents/*/agent/models.json` | Provider and model configuration |
 | `agents/*/sessions/` | Full chat session history |
 | `devices/paired.json` | Paired browser/device tokens |
 | `identity/device.json` | Gateway device identity key |
-| `workspace/*.md` | Agent personality files (SOUL.md, AGENTS.md, IDENTITY.md, USER.md, etc.) |
+| `workspace*.md` / `workspace-*/` | Agent personality files and per-agent workspaces |
 | `cron/jobs.json` | Scheduled jobs |
 | `logs/config-audit.jsonl` | Configuration change audit log |
 
-Restoring this backup to any OpenClaw instance gives you an **identical agent** — same personality, same OAuth tokens, same session history, same device pairings. The only volume *not* backed up is `openclaw_home`, which contains only regenerable caches (Playwright browser ~622 MB, Node compile cache ~34 MB) and carries no state.
+Restoring this backup to any OpenClaw instance gives you an **identical agent system** — same personalities, same OAuth tokens, same session history, same device pairings, same multi-agent layout. The only volume *not* backed up is `openclaw_home`, which contains only regenerable caches (Playwright browser, Node compile cache) and carries no durable state.
 
 Use the **Backups** submenu (option 3) in the admin console to list remote backups, check the last backup status, trigger a manual backup, or restore from any previous backup.
 
@@ -155,6 +216,8 @@ Use the **Backups** submenu (option 3) in the admin console to list remote backu
 | `openclaw_model` | | `openai-codex/gpt-5.4` | Default AI model |
 | `browser_enabled` | | `true` | Enable Chromium browser tool |
 | `extra_apt_packages` | | `git curl jq` | Extra packages in gateway container |
+| `enable_agent_to_agent` | | `false` | Enable OpenClaw agent-to-agent messaging across the configured team |
+| `agent_team` | | `[]` | Multi-agent team definition (workspaces, routing bindings, tools, sandbox, identity, personas) |
 | `r2_backup_access_key_id` | | `""` | R2 key (enables encrypted backups) |
 | `r2_backup_secret_access_key` | | `""` | R2 secret key |
 
@@ -184,5 +247,5 @@ terraform taint random_password.gateway_token && terraform apply
 - Gateway token auth (defense in depth behind Zero Trust)
 - Containers run as non-root (`node` uid 1000)
 - Cloud-init scrubs all secrets from logs after boot
-- Container images pinned by digest
+- Container images pinned by digest where practical
 - Never commit `terraform.tfstate` or `terraform.tfvars` (gitignored)

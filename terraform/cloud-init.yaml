@@ -10,6 +10,7 @@ packages:
   - gnupg
   - lsb-release
   - git
+  - python3
   - unattended-upgrades
   - update-notifier-common
 
@@ -62,50 +63,63 @@ write_files:
   - path: /root/.openclaw-config.json
     permissions: '0644'
     content: |
-      {
-        "agents": {
-          "defaults": {
-            "model": {
-              "primary": "${openclaw_model}"
-            },
-            "workspace": "~/.openclaw/workspace",
-            "memorySearch": {
-              "enabled": false
-            }
-          }
-        },
-        "gateway": {
-          "bind": "lan",
-          "auth": {
-            "mode": "token",
-            "rateLimit": {
-              "maxAttempts": 10,
-              "windowMs": 60000,
-              "lockoutMs": 300000
-            }
-          },
-          "mode": "local",
-          "controlUi": {
-            "allowedOrigins": ["https://${domain_name}"]
-          },
-          "trustedProxies": ["172.16.0.0/12", "10.0.0.0/8"]
-        },
-        "tools": {
-          "profile": "coding"
-        },
-        "session": {
-          "dmScope": "per-channel-peer"
-        },
-        "browser": {
-          "enabled": ${browser_enabled}
-        },
-        "discovery": {
-          "mdns": { "mode": "off" }
-        },
-        "logging": {
-          "redactSensitive": "tools"
-        }
-      }
+${openclaw_config_json}
+
+  - path: /root/.openclaw-agent-team.json
+    permissions: '0600'
+    content: |
+${agent_team_json}
+
+  - path: /root/.openclaw-seed-workspaces.py
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env python3
+      import json
+      import os
+      from pathlib import Path
+
+      TEAM_FILE = Path("/root/.openclaw-agent-team.json")
+      DATA_ROOT = Path(os.environ.get("OPENCLAW_DATA_ROOT", "/root/openclaw-setup/data"))
+      OPENCLAW_PREFIX = "~/.openclaw/"
+
+      def resolve_openclaw_path(path_value: str):
+          if not path_value:
+              return None
+          if path_value == "~/.openclaw":
+              return DATA_ROOT
+          if path_value.startswith(OPENCLAW_PREFIX):
+              relative = path_value[len(OPENCLAW_PREFIX):]
+              return DATA_ROOT / relative
+          return None
+
+      def write_if_missing(path: Path, content: str):
+          path.parent.mkdir(parents=True, exist_ok=True)
+          if not path.exists():
+              path.write_text(content.rstrip() + "\n", encoding="utf-8")
+
+      payload = json.loads(TEAM_FILE.read_text(encoding="utf-8"))
+      for agent in payload.get("agents", []):
+          agent_id = agent["id"]
+          display_name = agent.get("identity_name") or agent.get("name") or agent_id.replace("-", " ").title()
+          theme = agent.get("identity_theme") or (agent.get("persona") or f"specialized {display_name} agent")
+          emoji = agent.get("identity_emoji") or "🛠️"
+          persona = agent.get("persona") or f"You are {display_name}, a focused OpenClaw agent."
+
+          workspace = resolve_openclaw_path(agent.get("workspace"))
+          agent_dir = resolve_openclaw_path(agent.get("agent_dir"))
+
+          if workspace is not None:
+              workspace.mkdir(parents=True, exist_ok=True)
+              write_if_missing(workspace / "SOUL.md", f"# SOUL.md\n\n{persona}\n")
+              write_if_missing(workspace / "AGENTS.md", f"# AGENTS.md\n\n## Purpose\n\n- Agent id: `{agent_id}`\n- Role: {theme}\n\n## Notes\n\n- This workspace belongs only to `{agent_id}`.\n- Keep notes and tools here isolated from other agents unless explicitly shared.\n")
+              write_if_missing(workspace / "USER.md", "# USER.md\n\n- **Name:**\n- **What to call them:**\n- **Timezone:**\n- **Notes:**\n")
+              write_if_missing(workspace / "TOOLS.md", "# TOOLS.md\n\nLocal notes for this agent only.\n")
+              write_if_missing(workspace / "IDENTITY.md", f"# IDENTITY.md\n\n- **Name:** {display_name}\n- **Creature:** OpenClaw agent\n- **Vibe:** {theme}\n- **Emoji:** {emoji}\n")
+              (workspace / "memory").mkdir(parents=True, exist_ok=True)
+
+          if agent_dir is not None:
+              agent_dir.mkdir(parents=True, exist_ok=True)
+              (agent_dir.parent / "sessions").mkdir(parents=True, exist_ok=True)
 
   - path: /root/.openclaw-init-packages.sh
     permissions: '0755'
@@ -162,9 +176,11 @@ runcmd:
   # 7. Pull images and create volumes before writing config
   - cd /root/openclaw-setup && docker compose pull
 
-  # 8. Create data directory for bind mount and seed config
+  # 8. Create data directory for bind mount and seed config + agent workspaces
   - mkdir -p /root/openclaw-setup/data
-  - cp /root/.openclaw-config.json /root/openclaw-setup/data/openclaw.json
+  - mkdir -p /root/openclaw-setup/data/agents
+  - bash -lc '[ -f /root/openclaw-setup/data/openclaw.json ] || cp /root/.openclaw-config.json /root/openclaw-setup/data/openclaw.json'
+  - OPENCLAW_DATA_ROOT=/root/openclaw-setup/data python3 /root/.openclaw-seed-workspaces.py
   - chmod 600 /root/openclaw-setup/data/openclaw.json
   - chmod 700 /root/openclaw-setup/data
   - chown -R 1000:1000 /root/openclaw-setup/data
@@ -205,4 +221,4 @@ runcmd:
   # 14. Scrub secrets from cloud-init logs
   - truncate -s 0 /var/log/cloud-init-output.log
   - sed -i '/TUNNEL_TOKEN\|GATEWAY_TOKEN\|SECRET_ACCESS_KEY\|GPG_PASSPHRASE/d' /var/log/cloud-init.log
-  - rm -f /root/.openclaw-env /root/.openclaw-config.json
+  - rm -f /root/.openclaw-env /root/.openclaw-config.json /root/.openclaw-agent-team.json

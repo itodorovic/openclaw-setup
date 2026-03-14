@@ -11,7 +11,7 @@ cloudflare_zone_id    = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # ── Domains ─────────────────────────────────────────────────────────────────
 domain_name   = "ai.example.com"
 status_domain = "status.example.com"
-admin_domain   = "admin.example.com"
+admin_domain  = "admin.example.com"
 
 # ── Access Control ──────────────────────────────────────────────────────────
 # email_forward_to is automatically added to the Access policy if set
@@ -21,13 +21,44 @@ email_forward_to = "your.personal@gmail.com"  # Cloudflare Email Routing: admin@
 # ── Repository ──────────────────────────────────────────────────────────────
 repo_clone_url = "https://github.com/itodorovic/openclaw-setup.git"
 
-# ── R2 Backups (optional — uncomment to enable free encrypted backups) ────
+# ── R2 Backups (optional — uncomment to enable free encrypted backups) ─────
 # Create R2 API token once: Cloudflare Dashboard → R2 → Manage R2 API Tokens
 # Everything else (bucket, endpoint, encryption password) is auto-generated.
 # r2_backup_access_key_id     = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # R2 → Manage API Tokens → Access Key ID
 # r2_backup_secret_access_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # R2 → Manage API Tokens → Secret Access Key
 
 # ── OpenClaw ────────────────────────────────────────────────────────────────
-# openclaw_model     = "openai-codex/gpt-5.4"       # ChatGPT Plus via OAuth (default)
-# browser_enabled    = true
-# extra_apt_packages = "git curl jq"                 # system tools for plugins
+# openclaw_model          = "openai-codex/gpt-5.4"  # ChatGPT Plus via OAuth (default)
+# browser_enabled         = true
+# extra_apt_packages      = "git curl jq"           # system tools for plugins
+# enable_agent_to_agent   = true
+
+# Optional multi-agent team example:
+# agent_team = [
+#   {
+#     id             = "main"
+#     default        = true
+#     name           = "Main"
+#     model          = "openai-codex/gpt-5.4"
+#     identity_name  = "Djordje"
+#     identity_theme = "calm and reliable manager for agent coders"
+#     identity_emoji = "🛠️"
+#     bindings = [
+#       { channel = "webchat" },
+#     ]
+#   },
+#   {
+#     id                       = "reviewer"
+#     name                     = "Reviewer"
+#     model                    = "anthropic/claude-opus-4-6"
+#     tool_profile             = "coding"
+#     tools_deny               = ["exec"]
+#     sandbox_mode             = "all"
+#     sandbox_scope            = "agent"
+#     sandbox_workspace_access = "ro"
+#     persona                  = "You are a careful reviewer agent focused on critique, safety, and architecture."
+#     bindings = [
+#       { channel = "telegram", account_id = "reviewer" },
+#     ]
+#   },
+# ]

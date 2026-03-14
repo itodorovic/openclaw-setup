@@ -50,6 +50,7 @@ services:
     environment:
       - NODE_ENV=production
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
+      - DOMAIN_NAME=${DOMAIN_NAME:-}
     security_opt:
       - no-new-privileges:true
     mem_limit: 256m

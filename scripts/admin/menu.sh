@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Admin shell menu — served by ttyd at admin.streamcg.dev
+# Admin shell menu — served by ttyd inside the admin container
 set -euo pipefail
 
 DEVICES_DIR="/home/node/.openclaw/devices"
+DASHBOARD_DOMAIN="${DOMAIN_NAME:-ai.example.com}"
 
 # ── Main Menu ────────────────────────────────────────────
 
@@ -81,7 +82,6 @@ approve_device() {
   node -e "
     const fs = require('fs');
     const pPath = '$DEVICES_DIR/pending.json';
-    const aPath = '$DEVICES_DIR/paired.json';
     const pending = JSON.parse(fs.readFileSync(pPath, 'utf8'));
     const keys = Object.keys(pending);
     if (!keys.length) {
@@ -142,7 +142,7 @@ approve_device() {
     fs.writeFileSync(aPath, JSON.stringify(paired, null, 2));
     fs.writeFileSync(pPath, JSON.stringify(pending, null, 2));
     fs.unlinkSync('/tmp/.pending_keys.json');
-    console.log('  Done. Restart gateway (main menu → 2) for changes to take effect.');
+    console.log('  Done. Restart gateway (main menu → 4) for changes to take effect.');
   "
 }
 
@@ -179,7 +179,7 @@ remove_device() {
     });
 
     fs.writeFileSync(aPath, JSON.stringify(paired, null, 2));
-    console.log('  Done. Restart gateway for changes to take effect.');
+    console.log('  Done. Restart gateway (main menu → 4) for changes to take effect.');
   "
 }
 
@@ -192,7 +192,7 @@ _fetch_r2_env() {
   if [ -z "${_R2_ENV_LOADED:-}" ]; then
     eval "$(docker exec volume-backup env 2>/dev/null \
       | grep -E '^(AWS_|GPG_PASSPHRASE=)' \
-      | sed "s/'/'\\\\''/g; s/=\(.*\)/='\1'/")"
+      | sed "s/'/'\\''/g; s/=\(.*\)/='\1'/")"
     _R2_ENV_LOADED=1
   fi
 }
@@ -367,16 +367,15 @@ ensure_docker() {
 dashboard_url() {
   echo ""
   if ! ensure_docker; then return; fi
-  # Extract the token from the CLI's dashboard output
-  URL=$(docker exec openclaw-gateway node /app/dist/index.js dashboard --no-open 2>&1 \
-    | grep -oP 'http://[^#]+#token=\K.*' || true)
-  if [ -z "$URL" ]; then
-    echo "  Could not retrieve gateway token."
+  TOKEN=$(docker exec openclaw-gateway node /app/dist/index.js dashboard --no-open 2>&1 \
+    | grep -oP '#token=\K[^[:space:]]+' | tail -1 || true)
+  if [ -z "$TOKEN" ]; then
+    echo "  Could not retrieve dashboard token."
     return
   fi
   echo "  Open this URL in your browser:"
   echo ""
-  echo "  https://ai.streamcg.dev/#token=$URL"
+  echo "  https://${DASHBOARD_DOMAIN}/#token=${TOKEN}"
   echo ""
   echo "  (The token auto-pairs your browser — no approval needed.)"
 }

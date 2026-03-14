@@ -33,14 +33,12 @@ output "next_step" {
 
     1. Open https://${var.admin_domain} to access the admin console.
 
-    2. Use option 3 (OpenAI Codex OAuth login) and follow the URL.
+    2. Use option 5 (OpenAI Codex OAuth login) and follow the URL.
 
-    3. Use option 2 to restart the gateway.
+    3. Use option 4 to restart the gateway.
 
-    4. Open https://${var.domain_name} and pair your browser:
-       - Click Connect in the dashboard
-       - Switch to admin console → Devices → Approve pending device
-       - Then restart gateway again
+    4. Use option 1 to generate a dashboard URL, then open it in your browser.
+       The tokenized URL auto-pairs your browser, so no manual device approval is needed.
 
     Gateway token (for reference): terraform output gateway_token
   EOT

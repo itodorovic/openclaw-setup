@@ -132,3 +132,39 @@ variable "extra_apt_packages" {
   type        = string
   default     = "git curl jq"
 }
+
+variable "enable_agent_to_agent" {
+  description = "Enable agent-to-agent messaging for all configured agents."
+  type        = bool
+  default     = false
+}
+
+variable "agent_team" {
+  description = "Optional multi-agent team definition. Leave empty for the default single-agent deployment. Each agent can declare workspaces, model overrides, tool policy, sandbox profile, identity metadata, and channel/account/peer bindings."
+  type = list(object({
+    id                       = string
+    default                  = optional(bool)
+    name                     = optional(string)
+    workspace                = optional(string)
+    agent_dir                = optional(string)
+    model                    = optional(string)
+    model_fallbacks          = optional(list(string))
+    tool_profile             = optional(string)
+    tools_allow              = optional(list(string))
+    tools_deny               = optional(list(string))
+    sandbox_mode             = optional(string)
+    sandbox_scope            = optional(string)
+    sandbox_workspace_access = optional(string)
+    identity_name            = optional(string)
+    identity_theme           = optional(string)
+    identity_emoji           = optional(string)
+    persona                  = optional(string)
+    bindings = optional(list(object({
+      channel    = string
+      account_id = optional(string)
+      peer_kind  = optional(string)
+      peer_id    = optional(string)
+    })))
+  }))
+  default = []
+}
