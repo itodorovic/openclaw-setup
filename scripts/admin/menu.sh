@@ -190,6 +190,8 @@ COMPOSE_FILE="/root/openclaw-setup/docker-compose.yml"
 _fetch_r2_env() {
   # Read S3 + GPG credentials from the volume-backup container (once per call)
   if [ -z "${_R2_ENV_LOADED:-}" ]; then
+    # Escape single quotes in values, then wrap each value in single quotes
+    # so eval handles passwords containing spaces, $, etc.
     eval "$(docker exec volume-backup env 2>/dev/null \
       | grep -E '^(AWS_|GPG_PASSPHRASE=)' \
       | sed "s/'/'\\''/g; s/=\(.*\)/='\1'/")"

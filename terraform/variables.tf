@@ -167,4 +167,9 @@ variable "agent_team" {
     })))
   }))
   default = []
+
+  validation {
+    condition     = alltrue([for a in var.agent_team : can(regex("^[a-z0-9][a-z0-9-]*$", a.id))])
+    error_message = "Each agent id must be lowercase alphanumeric with hyphens (e.g. 'code-review'), starting with a letter or digit."
+  }
 }
