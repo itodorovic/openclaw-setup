@@ -11,7 +11,7 @@ output "dashboard_url" {
 }
 
 output "status_url" {
-  description = "Uptime Kuma status page URL."
+  description = "Dozzle container log viewer URL."
   value       = "https://${var.status_domain}"
 }
 
@@ -29,13 +29,19 @@ output "gateway_token" {
 output "next_step" {
   description = "Post-deploy steps — OAuth login and device pairing."
   value       = <<-EOT
-    Wait ~3 minutes for cloud-init, then:
+    All 3 domains should be live within ~1 minute of apply completing.
 
-    1. Link your OpenAI Codex subscription (one-time):
-       ssh root@${digitalocean_droplet.openclaw.ipv4_address} "cd /root/openclaw-setup && docker compose run --rm openclaw-cli models auth login --provider openai-codex"
-       (Copy the redirect URL from your browser and paste it back into the terminal.)
+    1. Open https://${var.admin_domain} to access the admin console.
 
-    2. Open https://${var.domain_name} and enter the gateway token to pair your browser:
-       terraform output gateway_token
+    2. Use option 3 (OpenAI Codex OAuth login) and follow the URL.
+
+    3. Use option 2 to restart the gateway.
+
+    4. Open https://${var.domain_name} and pair your browser:
+       - Click Connect in the dashboard
+       - Switch to admin console → Devices → Approve pending device
+       - Then restart gateway again
+
+    Gateway token (for reference): terraform output gateway_token
   EOT
 }

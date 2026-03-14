@@ -113,7 +113,7 @@ write_files:
       # Re-installs extra apt packages inside the gateway container.
       # Called on first boot and can be re-run after Watchtower recreates.
       set -euo pipefail
-      CONTAINER="openclaw-setup-openclaw-gateway-1"
+      CONTAINER="openclaw-gateway"
       PACKAGES="${extra_apt_packages}"
       # Allow the node user to run npm global installs (enables dashboard "Update now" button)
       docker exec -u root "$CONTAINER" bash -c "chown -R node:node /usr/local/lib/node_modules /usr/local/bin" 2>/dev/null || true
@@ -178,7 +178,14 @@ runcmd:
   - cd /root/openclaw-setup && docker compose up -d
 
   # 11. Install extra apt packages + Chromium browser (if enabled)
-  - sleep 10
+  - |
+    echo "Waiting for gateway to be healthy before installing packages..."
+    for i in $(seq 1 30); do
+      STATUS=$(docker inspect openclaw-gateway --format '{{.State.Health.Status}}' 2>/dev/null || echo 'missing')
+      [ "$STATUS" = "healthy" ] && break
+      echo "  [$i/30] gateway: $STATUS"
+      sleep 5
+    done
   - /root/.openclaw-init-packages.sh
 
   # 12. Post-boot health check
@@ -196,29 +203,9 @@ runcmd:
     sed -i 's/^    //' /etc/cron.d/openclaw-reinstall-packages
     chmod 644 /etc/cron.d/openclaw-reinstall-packages
 
-  # 14. Delayed cloudflared restart to pick up tunnel config
-  # Terraform creates the tunnel ingress config AFTER cloud-init finishes,
-  # so cloudflared starts with no ingress rules and returns 503.
-  # This one-shot timer restarts it 2 minutes after boot.
-  - |
-    cat > /etc/systemd/system/cloudflared-restart.service <<'SVC'
-    [Unit]
-    Description=Restart cloudflared to pick up tunnel config
-    [Service]
-    Type=oneshot
-    ExecStart=/usr/bin/docker restart cloudflared
-    SVC
-    cat > /etc/systemd/system/cloudflared-restart.timer <<'TMR'
-    [Unit]
-    Description=Restart cloudflared 2 min after boot
-    [Timer]
-    OnBootSec=120
-    [Install]
-    WantedBy=timers.target
-    TMR
-    sed -i 's/^    //' /etc/systemd/system/cloudflared-restart.service /etc/systemd/system/cloudflared-restart.timer
-    systemctl daemon-reload
-    systemctl enable cloudflared-restart.timer
+  # 14. Cloudflared will be restarted by Terraform after tunnel config is created.
+  # No timer needed — Terraform handles this via a remote-exec provisioner
+  # that runs AFTER the tunnel ingress config is pushed to Cloudflare.
 
   # 15. Scrub secrets from cloud-init logs
   - truncate -s 0 /var/log/cloud-init-output.log

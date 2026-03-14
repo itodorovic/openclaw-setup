@@ -71,3 +71,30 @@ resource "terraform_data" "wait_for_cloudinit" {
     }
   }
 }
+
+# ── Restart cloudflared after Terraform pushes tunnel config + DNS ───────────
+# Cloud-init starts cloudflared before Terraform creates ingress rules, so it
+# serves 503. This provisioner fires AFTER both the config and DNS CNAMEs exist.
+
+resource "terraform_data" "restart_cloudflared" {
+  depends_on = [
+    cloudflare_zero_trust_tunnel_cloudflared_config.openclaw,
+    cloudflare_record.dashboard,
+    cloudflare_record.status,
+    cloudflare_record.admin,
+  ]
+
+  provisioner "remote-exec" {
+    inline = [
+      "docker restart cloudflared",
+      "sleep 5",
+      "docker logs cloudflared --tail 5 2>&1",
+    ]
+    connection {
+      type        = "ssh"
+      host        = digitalocean_droplet.openclaw.ipv4_address
+      user        = "root"
+      private_key = file(local.ssh_private_key_path)
+    }
+  }
+}
