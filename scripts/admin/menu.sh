@@ -20,6 +20,7 @@ show_menu() {
   echo "  7) Gateway logs (last 50 lines)"
   echo "  8) Container status"
   echo "  9) OpenClaw CLI shell"
+  echo " 10) OpenAI Codex OAuth login"
   echo "  s) System shell (bash)"
   echo "  0) Exit"
   echo ""
@@ -216,6 +217,17 @@ cli_shell() {
   node /app/dist/index.js "$@" || echo "  CLI exited with error."
 }
 
+openai_login() {
+  echo ""
+  echo "  OpenAI Codex OAuth Login"
+  echo "  ────────────────────────"
+  echo "  This will open an OAuth flow. Follow the URL to authenticate."
+  echo ""
+  node /app/dist/index.js models auth login --provider openai-codex
+  echo ""
+  echo "  Done. Restart gateway for the new credentials to take effect."
+}
+
 # Main loop
 while true; do
   show_menu
@@ -230,6 +242,7 @@ while true; do
     7) gateway_logs ;;
     8) container_status ;;
     9) cli_shell ;;
+    10) openai_login ;;
     s) echo "  Type 'exit' to return to menu."; bash ;;
     0) echo "  Goodbye."; exit 0 ;;
     *) echo "  Invalid choice." ;;
