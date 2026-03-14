@@ -73,44 +73,66 @@ list_pending() {
 
 approve_device() {
   echo ""
-  printf "  Reading pending devices and approving in one step...\n"
-  printf "  Enter device ID prefix to approve (or 'all', or empty to list first): "
-  read -r prefix
-
-  if [ -z "$prefix" ]; then
-    list_pending
-    echo ""
-    printf "  Enter device ID prefix to approve (or 'all'): "
-    read -r prefix
-    [ -z "$prefix" ] && return
-  fi
+  echo "  Approve pending device"
+  echo "  ──────────────────────"
 
   node -e "
     const fs = require('fs');
     const pPath = '$DEVICES_DIR/pending.json';
     const aPath = '$DEVICES_DIR/paired.json';
-    // Read both files atomically in one step
+    const pending = JSON.parse(fs.readFileSync(pPath, 'utf8'));
+    const keys = Object.keys(pending);
+    if (!keys.length) {
+      console.log('  No pending devices.');
+      console.log('  (Click Connect in the dashboard first, then quickly run approve)');
+      process.exit(0);
+    }
+    console.log('');
+    keys.forEach((k, i) => {
+      const d = pending[k];
+      const id = d.deviceId || k;
+      console.log('  ' + (i+1) + ') ' + id.slice(0,16) + '...  [' + (d.clientMode||'?') + ', ' + (d.platform||'?') + ']');
+    });
+    console.log('');
+    // Write keys to temp file for the shell to read
+    fs.writeFileSync('/tmp/.pending_keys.json', JSON.stringify(keys));
+  "
+
+  if [ ! -f /tmp/.pending_keys.json ]; then return; fi
+
+  printf "  Enter number to approve (or 'a' for all): "
+  read -r choice
+  [ -z "\$choice" ] && return
+
+  node -e "
+    const fs = require('fs');
+    const pPath = '$DEVICES_DIR/pending.json';
+    const aPath = '$DEVICES_DIR/paired.json';
     const pending = JSON.parse(fs.readFileSync(pPath, 'utf8'));
     const paired = JSON.parse(fs.readFileSync(aPath, 'utf8'));
-    const prefix = '$prefix';
+    const keys = JSON.parse(fs.readFileSync('/tmp/.pending_keys.json', 'utf8'));
+    const choice = '\$choice';
 
-    const matches = prefix === 'all'
-      ? Object.keys(pending)
-      : Object.keys(pending).filter(k => k.startsWith(prefix));
-
-    if (!matches.length) {
-      console.log('  No matching pending devices.');
-      console.log('  (The gateway may have cleared the request — try clicking Connect in the dashboard first, then immediately run approve with \"all\")');
-      process.exit(1);
+    let toApprove = [];
+    if (choice === 'a' || choice === 'all') {
+      toApprove = keys;
+    } else {
+      const num = parseInt(choice, 10);
+      if (num >= 1 && num <= keys.length) {
+        toApprove = [keys[num - 1]];
+      } else {
+        console.log('  Invalid choice.');
+        process.exit(1);
+      }
     }
 
-    matches.forEach(id => {
+    toApprove.forEach(id => {
       const dev = pending[id];
+      if (!dev) return;
       const deviceId = dev.deviceId || id;
       dev.role = dev.role || 'operator';
       dev.approvedAtMs = Date.now();
       dev.approvedScopes = dev.scopes || ['operator.admin','operator.read','operator.write','operator.approvals','operator.pairing'];
-      // Key by deviceId (what the gateway looks up), not requestId
       paired[deviceId] = dev;
       delete pending[id];
       console.log('  Approved: ' + deviceId.slice(0,16) + '...');
@@ -118,7 +140,8 @@ approve_device() {
 
     fs.writeFileSync(aPath, JSON.stringify(paired, null, 2));
     fs.writeFileSync(pPath, JSON.stringify(pending, null, 2));
-    console.log('  Done. Restart gateway for changes to take effect.');
+    fs.unlinkSync('/tmp/.pending_keys.json');
+    console.log('  Done. Restart gateway (option 6) for changes to take effect.');
   "
 }
 
