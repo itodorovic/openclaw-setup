@@ -229,7 +229,7 @@ openai_login() {
   echo "  ────────────────────────"
   echo "  This will open an OAuth flow. Follow the URL to authenticate."
   echo ""
-  NODE_OPTIONS='--max-old-space-size=768' node /app/dist/index.js models auth login --provider openai-codex
+  docker exec -it openclaw-gateway node /app/dist/index.js models auth login --provider openai-codex
   echo ""
   echo "  Done. Restart gateway for the new credentials to take effect."
 }
