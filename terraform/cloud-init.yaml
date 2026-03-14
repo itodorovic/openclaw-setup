@@ -181,7 +181,31 @@ runcmd:
     sed -i 's/^    //' /etc/cron.d/openclaw-reinstall-packages
     chmod 644 /etc/cron.d/openclaw-reinstall-packages
 
-  # 13. Scrub secrets from cloud-init logs
+  # 13. Delayed cloudflared restart to pick up tunnel config
+  # Terraform creates the tunnel ingress config AFTER cloud-init finishes,
+  # so cloudflared starts with no ingress rules and returns 503.
+  # This one-shot timer restarts it 2 minutes after boot.
+  - |
+    cat > /etc/systemd/system/cloudflared-restart.service <<'SVC'
+    [Unit]
+    Description=Restart cloudflared to pick up tunnel config
+    [Service]
+    Type=oneshot
+    ExecStart=/usr/bin/docker restart cloudflared
+    SVC
+    cat > /etc/systemd/system/cloudflared-restart.timer <<'TMR'
+    [Unit]
+    Description=Restart cloudflared 2 min after boot
+    [Timer]
+    OnBootSec=120
+    [Install]
+    WantedBy=timers.target
+    TMR
+    sed -i 's/^    //' /etc/systemd/system/cloudflared-restart.service /etc/systemd/system/cloudflared-restart.timer
+    systemctl daemon-reload
+    systemctl enable cloudflared-restart.timer
+
+  # 14. Scrub secrets from cloud-init logs
   - truncate -s 0 /var/log/cloud-init-output.log
   - sed -i '/TUNNEL_TOKEN\|GATEWAY_TOKEN\|SECRET_ACCESS_KEY\|ARCHIVE_PASSWORD/d' /var/log/cloud-init.log
   - rm -f /root/.openclaw-env /root/.openclaw-config.json
