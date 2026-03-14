@@ -122,6 +122,10 @@ write_files:
       if [ "${browser_enabled}" = "true" ]; then
         docker exec "$CONTAINER" node /app/node_modules/playwright-core/cli.js install chromium 2>/dev/null || true
       fi
+      # Restart admin container: it shares the gateway's network namespace,
+      # so if the gateway was OOM-killed/restarted during Chromium install,
+      # the admin's ttyd loses its socket binding.
+      docker restart openclaw-admin 2>/dev/null || true
 
 runcmd:
   # 1. Swap for stability on 2 GB droplets
