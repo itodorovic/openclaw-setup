@@ -42,7 +42,8 @@ list_paired() {
       console.log('  ' + (i+1) + ') ID:     ' + e.deviceId.slice(0,16) + '...');
       console.log('     Client: ' + (e.clientId || 'unknown') + ' (' + (e.clientMode || '?') + ')');
       console.log('     Role:   ' + (e.role || '?'));
-      console.log('     Added:  ' + new Date(e.createdAtMs).toISOString());
+      const ts = e.createdAtMs || e.approvedAtMs || e.ts;
+      console.log('     Added:  ' + (ts ? new Date(ts).toISOString() : 'unknown'));
       console.log('');
     });
   "
@@ -104,12 +105,14 @@ approve_device() {
 
     matches.forEach(id => {
       const dev = pending[id];
+      const deviceId = dev.deviceId || id;
       dev.role = dev.role || 'operator';
       dev.approvedAtMs = Date.now();
       dev.approvedScopes = dev.scopes || ['operator.admin','operator.read','operator.write','operator.approvals','operator.pairing'];
-      paired[id] = dev;
+      // Key by deviceId (what the gateway looks up), not requestId
+      paired[deviceId] = dev;
       delete pending[id];
-      console.log('  Approved: ' + id.slice(0,16) + '...');
+      console.log('  Approved: ' + deviceId.slice(0,16) + '...');
     });
 
     fs.writeFileSync(aPath, JSON.stringify(paired, null, 2));
