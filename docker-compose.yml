@@ -17,7 +17,7 @@ services:
       - OPENCLAW_NO_RESPAWN=1
     security_opt:
       - no-new-privileges:true
-    mem_limit: 1536m
+    mem_limit: 2048m
     healthcheck:
       test:
         - CMD-SHELL
