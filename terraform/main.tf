@@ -91,14 +91,14 @@ locals {
           length(agent.tools_allow) > 0 ? { allow = agent.tools_allow } : {},
           length(agent.tools_deny) > 0 ? { deny = agent.tools_deny } : {}
         )
-        sandbox = agent.sandbox_mode == "off" ? {
-          mode = "off"
-        } : {
+      },
+      agent.sandbox_mode != "off" ? {
+        sandbox = {
           mode            = agent.sandbox_mode
           scope           = agent.sandbox_scope
           workspaceAccess = agent.sandbox_workspace_access
         }
-      },
+      } : {},
       (
         agent.identity_name != null || agent.identity_theme != null || agent.identity_emoji != null
       ) ? {

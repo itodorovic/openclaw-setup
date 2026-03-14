@@ -101,7 +101,7 @@ ${agent_team_json}
       for agent in payload.get("agents", []):
           agent_id = agent["id"]
           display_name = agent.get("identity_name") or agent.get("name") or agent_id.replace("-", " ").title()
-          theme = agent.get("identity_theme") or (agent.get("persona") or f"specialized {display_name} agent")
+          theme = agent.get("identity_theme") or f"specialized {display_name} agent"
           emoji = agent.get("identity_emoji") or "🛠️"
           persona = agent.get("persona") or f"You are {display_name}, a focused OpenClaw agent."
 
@@ -111,7 +111,20 @@ ${agent_team_json}
           if workspace is not None:
               workspace.mkdir(parents=True, exist_ok=True)
               write_if_missing(workspace / "SOUL.md", f"# SOUL.md\n\n{persona}\n")
-              write_if_missing(workspace / "AGENTS.md", f"# AGENTS.md\n\n## Purpose\n\n- Agent id: `{agent_id}`\n- Role: {theme}\n\n## Notes\n\n- This workspace belongs only to `{agent_id}`.\n- Keep notes and tools here isolated from other agents unless explicitly shared.\n")
+              write_if_missing(workspace / "AGENTS.md", "\n".join([
+                  f"# AGENTS.md",
+                  f"",
+                  f"## Purpose",
+                  f"",
+                  f"- Agent id: `{agent_id}`",
+                  f"- Role: {theme}",
+                  f"",
+                  f"## Notes",
+                  f"",
+                  f"- This workspace belongs only to `{agent_id}`.",
+                  f"- Keep notes and tools here isolated from other agents unless explicitly shared.",
+                  f"",
+              ]))
               write_if_missing(workspace / "USER.md", "# USER.md\n\n- **Name:**\n- **What to call them:**\n- **Timezone:**\n- **Notes:**\n")
               write_if_missing(workspace / "TOOLS.md", "# TOOLS.md\n\nLocal notes for this agent only.\n")
               write_if_missing(workspace / "IDENTITY.md", f"# IDENTITY.md\n\n- **Name:** {display_name}\n- **Creature:** OpenClaw agent\n- **Vibe:** {theme}\n- **Emoji:** {emoji}\n")
