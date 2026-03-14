@@ -77,8 +77,8 @@ Terraform creates the droplet, waits for cloud-init to finish, pushes the tunnel
 Open `https://admin.example.com` — the admin console handles all post-deploy actions:
 
 1. **Dashboard URL** — Option 1. Generates a tokenized URL to open in your browser (auto-pairs, no approval needed).
-2. **OpenAI Codex OAuth** — Option 4. Follow the URL, sign in, paste the redirect URL back.
-3. **Restart gateway** — Option 3. Picks up the new OAuth credentials.
+2. **OpenAI Codex OAuth** — Option 5. Follow the URL, sign in, paste the redirect URL back.
+3. **Restart gateway** — Option 4. Picks up the new OAuth credentials.
 4. Open the dashboard URL from step 1. You're in.
 
 ## Admin Console
@@ -88,15 +88,36 @@ The admin console at `admin.example.com` provides:
 ```
 1) Dashboard URL  — tokenized link to connect your browser
 2) Devices        — list paired, approve pending, remove
-3) Restart gateway
-4) OpenAI Codex OAuth login
-5) Update OpenClaw — pull latest image, restart, reinstall packages
-6) Lazydocker     — live container CPU/memory/logs TUI
-7) OpenClaw CLI shell
+3) Backups        — list remote backups, status, backup now, restore
+4) Restart gateway
+5) OpenAI Codex OAuth login
+6) Update OpenClaw — pull latest image, restart, reinstall packages
+7) Lazydocker     — live container CPU/memory/logs TUI
+8) OpenClaw CLI shell
 s) System shell
 ```
 
-> **Updates:** Watchtower auto-updates infrastructure containers (Caddy, cloudflared, Dozzle) but **not** OpenClaw itself. Use option 5 to update OpenClaw on your own schedule. Ignore the "Update" button in the dashboard — it doesn't work in a containerized deployment.
+> **Updates:** Watchtower auto-updates infrastructure containers (Caddy, cloudflared, Dozzle) but **not** OpenClaw itself. Use option 6 to update OpenClaw on your own schedule. Ignore the "Update" button in the dashboard — it doesn't work in a containerized deployment.
+
+## Backups
+
+When R2 credentials are configured, the `volume-backup` container creates a **GPG-encrypted** backup of the `openclaw_data` volume every night at 3 AM and uploads it to Cloudflare R2. The backup contains the complete agent state:
+
+| Path | What it is |
+|------|------------|
+| `openclaw.json` | Main configuration (model, gateway settings, tools, sessions) |
+| `agents/*/agent/auth-profiles.json` | OAuth credentials (e.g. OpenAI Codex tokens) |
+| `agents/*/agent/models.json` | Provider and model configuration |
+| `agents/*/sessions/` | Full chat session history |
+| `devices/paired.json` | Paired browser/device tokens |
+| `identity/device.json` | Gateway device identity key |
+| `workspace/*.md` | Agent personality files (SOUL.md, AGENTS.md, IDENTITY.md, USER.md, etc.) |
+| `cron/jobs.json` | Scheduled jobs |
+| `logs/config-audit.jsonl` | Configuration change audit log |
+
+Restoring this backup to any OpenClaw instance gives you an **identical agent** — same personality, same OAuth tokens, same session history, same device pairings. The only volume *not* backed up is `openclaw_home`, which contains only regenerable caches (Playwright browser ~622 MB, Node compile cache ~34 MB) and carries no state.
+
+Use the **Backups** submenu (option 3) in the admin console to list remote backups, check the last backup status, trigger a manual backup, or restore from any previous backup.
 
 ## Variables
 
