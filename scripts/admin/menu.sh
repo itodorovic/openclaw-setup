@@ -220,7 +220,7 @@ cli_shell() {
   echo ""
   echo "  Starting OpenClaw CLI... (type 'exit' to return to menu)"
   echo "  ──────────────────────────────────────────────────────────"
-  node /app/dist/index.js "$@" || echo "  CLI exited with error."
+  NODE_OPTIONS='--max-old-space-size=768' node /app/dist/index.js "$@" || echo "  CLI exited with error."
 }
 
 openai_login() {
@@ -229,7 +229,7 @@ openai_login() {
   echo "  ────────────────────────"
   echo "  This will open an OAuth flow. Follow the URL to authenticate."
   echo ""
-  node /app/dist/index.js models auth login --provider openai-codex
+  NODE_OPTIONS='--max-old-space-size=768' node /app/dist/index.js models auth login --provider openai-codex
   echo ""
   echo "  Done. Restart gateway for the new credentials to take effect."
 }
