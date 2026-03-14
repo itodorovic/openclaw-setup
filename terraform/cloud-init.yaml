@@ -56,6 +56,7 @@ write_files:
       AWS_SECRET_ACCESS_KEY=${s3_secret_key}
       AWS_REGION=${s3_region}
       AWS_ENDPOINT=${s3_endpoint}
+      AWS_ENDPOINT_PROTO=https
       BACKUP_ARCHIVE_PASSWORD=${backup_password}
 
   - path: /root/.openclaw-config.json

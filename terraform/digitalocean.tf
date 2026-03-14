@@ -24,7 +24,7 @@ resource "digitalocean_droplet" "openclaw" {
     s3_access_key           = var.r2_backup_access_key_id
     s3_secret_key           = var.r2_backup_secret_access_key
     s3_region               = "auto"
-    s3_endpoint             = var.r2_backup_access_key_id != "" ? "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com" : ""
+    s3_endpoint             = var.r2_backup_access_key_id != "" ? "${var.cloudflare_account_id}.r2.cloudflarestorage.com" : ""
     backup_password         = var.r2_backup_access_key_id != "" ? random_password.backup_passphrase.result : ""
     openclaw_model          = var.openclaw_model
     browser_enabled         = var.browser_enabled ? "true" : "false"
