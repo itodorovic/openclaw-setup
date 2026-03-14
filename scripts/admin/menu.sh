@@ -12,11 +12,12 @@ show_menu() {
   echo "  OpenClaw Admin Console"
   echo "========================================="
   echo ""
-  echo "  1) Devices (pair, list, remove)"
-  echo "  2) Restart gateway"
-  echo "  3) OpenAI Codex OAuth login"
-  echo "  4) Lazydocker (logs + monitor)"
-  echo "  5) OpenClaw CLI shell"
+  echo "  1) Dashboard URL (connect browser)"
+  echo "  2) Devices (pair, list, remove)"
+  echo "  3) Restart gateway"
+  echo "  4) OpenAI Codex OAuth login"
+  echo "  5) Lazydocker (logs + monitor)"
+  echo "  6) OpenClaw CLI shell"
   echo "  s) System shell (bash)"
   echo "  0) Exit"
   echo ""
@@ -189,6 +190,23 @@ ensure_docker() {
   fi
 }
 
+dashboard_url() {
+  echo ""
+  if ! ensure_docker; then return; fi
+  # Extract the token from the CLI's dashboard output
+  URL=$(docker exec openclaw-gateway node /app/dist/index.js dashboard --no-open 2>&1 \
+    | grep -oP 'http://[^#]+#token=\K.*' || true)
+  if [ -z "$URL" ]; then
+    echo "  Could not retrieve gateway token."
+    return
+  fi
+  echo "  Open this URL in your browser:"
+  echo ""
+  echo "  https://ai.streamcg.dev/#token=$URL"
+  echo ""
+  echo "  (The token auto-pairs your browser — no approval needed.)"
+}
+
 restart_gateway() {
   echo ""
   echo "  Restarting gateway..."
@@ -244,11 +262,12 @@ while true; do
   show_menu
   read -r choice
   case "$choice" in
-    1) devices_menu ;;
-    2) restart_gateway ;;
-    3) openai_login ;;
-    4) lazydocker_tui ;;
-    5) cli_shell ;;
+    1) dashboard_url ;;
+    2) devices_menu ;;
+    3) restart_gateway ;;
+    4) openai_login ;;
+    5) lazydocker_tui ;;
+    6) cli_shell ;;
     s) echo "  Type 'exit' to return to menu."; bash ;;
     0) echo "  Goodbye."; exit 0 ;;
     *) echo "  Invalid choice." ;;
