@@ -78,10 +78,13 @@ The admin console at `admin.example.com` provides:
 2) Devices        — list paired, approve pending, remove
 3) Restart gateway
 4) OpenAI Codex OAuth login
-5) Lazydocker     — live container CPU/memory/logs TUI
-6) OpenClaw CLI shell
+5) Update OpenClaw — pull latest image, restart, reinstall packages
+6) Lazydocker     — live container CPU/memory/logs TUI
+7) OpenClaw CLI shell
 s) System shell
 ```
+
+> **Updates:** Watchtower auto-updates infrastructure containers (Caddy, cloudflared, Dozzle) but **not** OpenClaw itself. Use option 5 to update OpenClaw on your own schedule. Ignore the "Update" button in the dashboard — it doesn't work in a containerized deployment.
 
 ## Variables
 
