@@ -61,8 +61,46 @@ resource "digitalocean_firewall" "openclaw" {
 resource "terraform_data" "wait_for_cloudinit" {
   depends_on = [digitalocean_droplet.openclaw, digitalocean_firewall.openclaw]
 
+  provisioner "file" {
+    content     = <<-SCRIPT
+      #!/bin/bash
+      set -e
+      echo "Waiting for cloud-init to finish..."
+      LAST=""
+      while true; do
+        RAW=$(cloud-init status 2>&1) || true
+        STATUS=$(echo "$RAW" | head -1 | sed 's/^status: //')
+        PROGRESS=""
+        [ -f /swapfile ]                                                                      && PROGRESS="$PROGRESS swap"
+        command -v docker >/dev/null 2>&1                                                      && PROGRESS="$PROGRESS docker"
+        [ -d /root/openclaw-setup/.git ]                                                       && PROGRESS="$PROGRESS repo"
+        command -v ttyd >/dev/null 2>&1                                                        && PROGRESS="$PROGRESS ttyd"
+        docker ps --format '{{.Names}}' 2>/dev/null | grep -q openclaw-gateway                 && PROGRESS="$PROGRESS gateway"
+        docker ps --format '{{.Names}}' 2>/dev/null | grep -q cloudflared                      && PROGRESS="$PROGRESS tunnel"
+        docker ps --format '{{.Names}}' 2>/dev/null | grep -q dozzle                           && PROGRESS="$PROGRESS dozzle"
+        LINE="cloud-init: $STATUS |$PROGRESS"
+        if [ "$LINE" != "$LAST" ]; then
+          echo "$LINE"
+          LAST="$LINE"
+        fi
+        case "$STATUS" in
+          done)  echo "cloud-init: finished OK"; exit 0 ;;
+          error) echo "cloud-init: finished with errors"; exit 1 ;;
+        esac
+        sleep 5
+      done
+    SCRIPT
+    destination = "/tmp/wait-cloudinit.sh"
+    connection {
+      type        = "ssh"
+      host        = digitalocean_droplet.openclaw.ipv4_address
+      user        = "root"
+      private_key = file(local.ssh_private_key_path)
+    }
+  }
+
   provisioner "remote-exec" {
-    inline = ["cloud-init status --wait"]
+    inline = ["chmod +x /tmp/wait-cloudinit.sh && /tmp/wait-cloudinit.sh"]
     connection {
       type        = "ssh"
       host        = digitalocean_droplet.openclaw.ipv4_address
