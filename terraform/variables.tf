@@ -62,7 +62,7 @@ variable "domain_name" {
 }
 
 variable "status_domain" {
-  description = "FQDN for the Uptime Kuma status page (e.g., status.example.com)."
+  description = "FQDN for the Dozzle container log viewer (e.g., status.example.com)."
   type        = string
 }
 

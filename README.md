@@ -2,45 +2,52 @@
 
 Fully automated [OpenClaw](https://github.com/openclaw/openclaw) deployment on DigitalOcean with Cloudflare Zero Trust. Three API tokens in, production out.
 
+## What You Get
+
+| Domain | Service | Purpose |
+|--------|---------|---------|
+| `ai.example.com` | OpenClaw Dashboard | AI agent chat interface |
+| `admin.example.com` | Admin Console | Device pairing, OAuth login, monitoring (ttyd web terminal) |
+| `status.example.com` | Dozzle | Docker container logs & health viewer |
+
+All domains are protected by Cloudflare Zero Trust (email-gated SSO). No public ports — traffic flows exclusively through a Cloudflare Tunnel.
+
 ## Architecture
 
-| Layer | Component | Managed By |
-|-------|-----------|------------|
-| Compute | DigitalOcean Droplet (2 GB + 4 GB swap) | `digitalocean` provider |
-| DNS + Security | Cloudflare Tunnel, CNAME records, Zero Trust Access | `cloudflare` provider |
-| AI Agent | OpenClaw Gateway (Docker, runs as `node` uid 1000) | Docker Compose |
-| Proxy | Caddy (internal HTTP routing) | Docker Compose |
-| Updates | Watchtower (nightly pulls) | Docker Compose |
-| Backups | Encrypted nightly S3 upload | Docker Compose |
-| Monitoring | Uptime Kuma | Docker Compose |
-
-No public ports. The Droplet IP is never exposed in DNS — all traffic flows through Cloudflare Tunnel.
+| Layer | Component |
+|-------|-----------|
+| Compute | DigitalOcean Droplet (2 GB RAM + 4 GB swap) |
+| Network | Cloudflare Tunnel + Zero Trust Access (3 domains) |
+| AI Agent | OpenClaw Gateway (Docker, non-root) |
+| Admin | Web terminal with device management, OAuth, lazydocker |
+| Proxy | Caddy (internal HTTP routing) |
+| Updates | Watchtower (nightly auto-pull) |
+| Backups | Encrypted nightly to Cloudflare R2 (optional) |
+| Monitoring | Dozzle (container logs) + lazydocker (TUI in admin) |
 
 ## Prerequisites
 
 1. [Terraform](https://developer.hashicorp.com/terraform/install) ≥ 1.5
 2. A domain with DNS on Cloudflare
-3. API tokens:
+3. An SSH key pair (`~/.ssh/id_ed25519` by default)
+4. API tokens:
 
    | Token | Source |
    |-------|--------|
    | DigitalOcean | [API tokens](https://docs.digitalocean.com/reference/api/create-personal-access-token/) |
-   | Cloudflare API Token | [Custom token](https://dash.cloudflare.com/profile/api-tokens) — see permissions below |
+   | Cloudflare | [Custom token](https://dash.cloudflare.com/profile/api-tokens) with permissions below |
 
-   **Cloudflare API Token permissions** (Create Custom Token):
-   | Scope | Permission | Level | Required? |
-   |-------|-----------|-------|-----------|
-   | Zone | DNS | Edit | Always |
-   | Zone | Zone | Read | Always |
-   | Account | Cloudflare Tunnel | Edit | Always |
-   | Account | Access: Apps and Policies | Edit | Always |
-   | Account | Workers R2 Storage | Edit | If using R2 backups |
-   | Zone | Email Routing Rules | Edit | If using `email_forward_to` |
-   | Account | Email Routing Addresses | Edit | If using `email_forward_to` |
+   **Cloudflare token permissions:**
 
-   > **Note:** If using `email_forward_to`, you must also enable Email Routing on your zone **manually** before running `terraform apply`: Cloudflare Dashboard → your domain → Email → Email Routing → Enable. The enable endpoint does not support API tokens (Cloudflare limitation).
-   | Cloudflare Account ID | Dashboard URL: `https://dash.cloudflare.com/<account_id>` |
-   | Cloudflare Zone ID | Domain Overview page |
+   | Scope | Permission | When |
+   |-------|-----------|------|
+   | Zone > DNS | Edit | Always |
+   | Zone > Zone | Read | Always |
+   | Account > Cloudflare Tunnel | Edit | Always |
+   | Account > Access: Apps and Policies | Edit | Always |
+   | Account > Workers R2 Storage | Edit | If using R2 backups |
+   | Zone > Email Routing Rules | Edit | If using `email_forward_to` |
+   | Account > Email Routing Addresses | Edit | If using `email_forward_to` |
 
 ## Deploy
 
@@ -51,87 +58,80 @@ terraform init
 terraform apply
 ```
 
-Wait ~3 min for cloud-init, then link your OpenAI Codex subscription (only manual step):
+Terraform creates the droplet, waits for cloud-init to finish, pushes the tunnel config, then restarts cloudflared — all three domains are live when `apply` completes.
 
-```bash
-ssh root@$(terraform output -raw server_ip) \
-  "cd /root/openclaw-setup && docker compose run --rm openclaw-cli models auth login --provider openai-codex"
+## Post-Deploy (via Admin Console)
+
+Open `https://admin.example.com` — the admin console handles all post-deploy actions:
+
+1. **OpenAI Codex OAuth** — Option 3. Follow the URL, sign in, paste the redirect URL back.
+2. **Restart gateway** — Option 2. Picks up the new OAuth credentials.
+3. **Pair your browser** — Open the dashboard, click Connect. Switch to admin → Devices → Approve (type `1` to approve). Restart gateway again.
+
+That's it. The dashboard is ready.
+
+## Admin Console
+
+The admin console at `admin.example.com` provides:
+
 ```
-
-This starts an OAuth flow. It will print a URL — open it in your local browser, sign in with your ChatGPT Plus account, then **copy the full redirect URL** from the browser address bar and paste it back into the SSH terminal (the localhost callback won't work on the remote server). Tokens auto-refresh after initial login.
-
-Done. Open `terraform output dashboard_url` in your browser.
+1) Devices        — list paired, approve pending, remove
+2) Restart gateway
+3) OpenAI Codex OAuth login
+4) Lazydocker     — live container CPU/memory/logs TUI
+5) OpenClaw CLI shell
+s) System shell
+```
 
 ## Variables
 
 | Variable | Required | Default | Description |
 |----------|:--------:|---------|-------------|
-| `do_token` | yes | | DigitalOcean API token |
-| `cloudflare_api_token` | yes | | Cloudflare scoped API token |
-| `cloudflare_account_id` | yes | | Cloudflare account ID |
-| `cloudflare_zone_id` | yes | | Cloudflare Zone ID |
-| `domain_name` | yes | | Dashboard FQDN (e.g. `ai.example.com`) |
-| `status_domain` | yes | | Status page FQDN (e.g. `status.example.com`) |
-| `allowed_emails` | yes | | Emails for Zero Trust access |
-| `email_forward_to` | | | Personal email — enables Cloudflare Email Routing: `allowed_emails[0]` → here |
-| `allowed_ssh_cidrs` | | auto-detected | CIDRs for SSH (auto-detects your IP if omitted) |
-| `repo_clone_url` | yes | | Git HTTPS URL to clone on boot |
+| `do_token` | ✓ | | DigitalOcean API token |
+| `cloudflare_api_token` | ✓ | | Cloudflare scoped API token |
+| `cloudflare_account_id` | ✓ | | Cloudflare account ID |
+| `cloudflare_zone_id` | ✓ | | Cloudflare zone ID |
+| `domain_name` | ✓ | | Dashboard FQDN |
+| `admin_domain` | ✓ | | Admin console FQDN |
+| `status_domain` | ✓ | | Log viewer FQDN |
+| `allowed_emails` | ✓ | | Emails for Zero Trust access |
+| `repo_clone_url` | ✓ | | Git HTTPS URL for this repo |
+| `email_forward_to` | | `""` | Forward domain mail to personal email |
 | `ssh_key_path` | | `~/.ssh/id_ed25519.pub` | SSH public key path |
 | `droplet_region` | | `fra1` | DigitalOcean region |
 | `droplet_size` | | `s-1vcpu-2gb` | Droplet size |
 | `access_session_duration` | | `24h` | Zero Trust session lifetime |
 | `openclaw_model` | | `openai-codex/gpt-5.4` | Default AI model |
-| `browser_enabled` | | `true` | Enable browser tool + Chromium |
-| `extra_apt_packages` | | `git curl jq` | System packages for gateway |
-| `r2_backup_access_key_id` | | | R2 Access Key ID (enables backups) |
-| `r2_backup_secret_access_key` | | | R2 Secret Access Key |
+| `browser_enabled` | | `true` | Enable Chromium browser tool |
+| `extra_apt_packages` | | `git curl jq` | Extra packages in gateway container |
+| `r2_backup_access_key_id` | | `""` | R2 key (enables encrypted backups) |
+| `r2_backup_secret_access_key` | | `""` | R2 secret key |
+
+## Tear Down
+
+```bash
+cd terraform
+terraform destroy
+```
+
+Removes all cloud resources: droplet, firewall, tunnel, DNS records, Access apps, R2 bucket.
 
 ## Credential Rotation
 
-All secrets are in Terraform state — rotate by tainting and reapplying:
-
 ```bash
-# Tunnel token
+# Rotate tunnel secret
 terraform taint random_id.tunnel_secret && terraform apply
 
-# Gateway token
+# Rotate gateway token
 terraform taint random_password.gateway_token && terraform apply
-
-# Cloudflare or DO API token — update in terraform.tfvars, then:
-terraform plan   # verify connectivity
-```
-
-## Remote State (Recommended)
-
-```bash
-cp terraform/backend.tf.example terraform/backend.tf
-# Edit with your S3/Spaces bucket
-terraform init -migrate-state
-```
-
-State contains tunnel + gateway tokens — treat it as secret.
-
-## Operations
-
-```bash
-# Smoke test
-./scripts/verify-remote-deployment.sh <server_ip> <dashboard_domain> <status_domain>
-
-# SSH access (from allowed CIDRs only)
-ssh root@$(terraform output -raw server_ip)
-
-# Run CLI commands against the gateway
-ssh root@<ip> "cd /root/openclaw-setup && docker compose run --rm openclaw-cli <command>"
-
-# Update the stack after changing compose/Caddyfile
-ssh root@<ip> "cd /root/openclaw-setup && git pull && docker compose up -d"
 ```
 
 ## Security
 
-- Droplet reachable only via SSH (restricted CIDRs) and Cloudflare Tunnel
-- Gateway runs token auth by default (defense in depth behind Zero Trust)
-- Container runs as non-root `node` user (uid 1000)
-- Cloud-init logs scrubbed of all secrets after startup
+- No public ports — SSH restricted to deployer IP, all web traffic via Cloudflare Tunnel
+- Cloudflare Zero Trust email-gated access on all three domains
+- Gateway token auth (defense in depth behind Zero Trust)
+- Containers run as non-root (`node` uid 1000)
+- Cloud-init scrubs all secrets from logs after boot
+- Container images pinned by digest
 - Never commit `terraform.tfstate` or `terraform.tfvars` (gitignored)
-- Container images pinned by digest — override in `.env` for planned upgrades
