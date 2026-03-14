@@ -160,16 +160,23 @@ clear_all() {
   fi
 }
 
+ensure_docker() {
+  if ! command -v docker &>/dev/null; then
+    if [ -S /var/run/docker.sock ]; then
+      echo "  (installing docker CLI...)"
+      curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | tar xz --strip-components=1 -C /usr/local/bin docker/docker 2>/dev/null
+    else
+      echo "  Docker socket not available."
+      return 1
+    fi
+  fi
+}
+
 restart_gateway() {
   echo ""
   echo "  Restarting gateway..."
-  if command -v docker &>/dev/null || [ -S /var/run/docker.sock ]; then
-    # Install docker CLI if not present (lightweight, just the client)
-    if ! command -v docker &>/dev/null; then
-      echo "  (installing docker CLI...)"
-      curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | tar xz --strip-components=1 -C /usr/local/bin docker/docker 2>/dev/null
-    fi
-    docker restart openclaw-gateway
+  if ! ensure_docker; then return; fi
+  docker restart openclaw-gateway
     echo "  Gateway restarted. Waiting for health..."
     sleep 10
     for i in $(seq 1 12); do
@@ -185,9 +192,6 @@ restart_gateway() {
       sleep 5
     done
     echo "  Gateway did not become healthy in time."
-  else
-    echo "  Docker socket not available."
-  fi
 }
 
 gateway_logs() {
@@ -229,6 +233,7 @@ openai_login() {
   echo "  ────────────────────────"
   echo "  This will open an OAuth flow. Follow the URL to authenticate."
   echo ""
+  if ! ensure_docker; then return; fi
   docker exec -it openclaw-gateway node /app/dist/index.js models auth login --provider openai-codex
   echo ""
   echo "  Done. Restart gateway for the new credentials to take effect."
