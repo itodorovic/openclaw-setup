@@ -238,7 +238,7 @@ openai_login() {
   if ! ensure_docker; then return; fi
   docker exec -it openclaw-gateway node /app/dist/index.js models auth login --provider openai-codex
   echo ""
-  echo "  Done. Restart gateway (option 2) for the new credentials to take effect."
+  echo "  Done. Restart gateway (option 3) for the new credentials to take effect."
 }
 
 lazydocker_tui() {

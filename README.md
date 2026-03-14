@@ -64,22 +64,22 @@ Terraform creates the droplet, waits for cloud-init to finish, pushes the tunnel
 
 Open `https://admin.example.com` — the admin console handles all post-deploy actions:
 
-1. **OpenAI Codex OAuth** — Option 3. Follow the URL, sign in, paste the redirect URL back.
-2. **Restart gateway** — Option 2. Picks up the new OAuth credentials.
-3. **Pair your browser** — Open the dashboard, click Connect. Switch to admin → Devices → Approve (type `1` to approve). Restart gateway again.
-
-That's it. The dashboard is ready.
+1. **Dashboard URL** — Option 1. Generates a tokenized URL to open in your browser (auto-pairs, no approval needed).
+2. **OpenAI Codex OAuth** — Option 4. Follow the URL, sign in, paste the redirect URL back.
+3. **Restart gateway** — Option 3. Picks up the new OAuth credentials.
+4. Open the dashboard URL from step 1. You're in.
 
 ## Admin Console
 
 The admin console at `admin.example.com` provides:
 
 ```
-1) Devices        — list paired, approve pending, remove
-2) Restart gateway
-3) OpenAI Codex OAuth login
-4) Lazydocker     — live container CPU/memory/logs TUI
-5) OpenClaw CLI shell
+1) Dashboard URL  — tokenized link to connect your browser
+2) Devices        — list paired, approve pending, remove
+3) Restart gateway
+4) OpenAI Codex OAuth login
+5) Lazydocker     — live container CPU/memory/logs TUI
+6) OpenClaw CLI shell
 s) System shell
 ```
 
