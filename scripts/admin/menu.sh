@@ -175,7 +175,13 @@ restart_gateway() {
     for i in $(seq 1 12); do
       status=$(docker inspect openclaw-gateway --format '{{.State.Health.Status}}' 2>/dev/null)
       echo "  [$i] $status"
-      if [ "$status" = "healthy" ]; then echo "  Gateway is healthy."; return; fi
+      if [ "$status" = "healthy" ]; then
+        echo "  Gateway is healthy."
+        echo "  Restarting admin container (shared network)..."
+        docker restart openclaw-admin
+        echo "  Admin container restarted."
+        return
+      fi
       sleep 5
     done
     echo "  Gateway did not become healthy in time."
