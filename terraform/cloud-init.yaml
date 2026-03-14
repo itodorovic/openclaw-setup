@@ -151,10 +151,12 @@ runcmd:
   - sleep 10
   - cd /root/openclaw-setup && docker compose stop openclaw-gateway
 
-  # 8. Copy openclaw.json into the named volume
+  # 8. Copy openclaw.json into the named volume and lock down permissions
   - |
     VOLUME_PATH=$(docker volume inspect openclaw-setup_openclaw_data --format '{{ .Mountpoint }}')
     cp /root/.openclaw-config.json "$VOLUME_PATH/openclaw.json"
+    chmod 600 "$VOLUME_PATH/openclaw.json"
+    chmod 700 "$VOLUME_PATH"
     chown -R 1000:1000 "$VOLUME_PATH"
 
   # 9. Launch the full stack
