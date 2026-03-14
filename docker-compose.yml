@@ -38,6 +38,7 @@ services:
       - openclaw_home:/home/node
       - ./scripts/admin:/admin:ro
       - /usr/local/bin/ttyd:/usr/local/bin/ttyd:ro
+      - /usr/local/bin/lazydocker:/usr/local/bin/lazydocker:ro
       - /usr/bin/docker:/usr/bin/docker:ro
       - /var/run/docker.sock:/var/run/docker.sock
     group_add:
@@ -116,23 +117,24 @@ services:
       BACKUP_RETENTION_LOCAL: "7"
     mem_limit: 256m
 
-  # 6. Uptime Monitoring & Alerting
-  uptime-kuma:
-    image: ${UPTIME_KUMA_IMAGE:-louislam/uptime-kuma@sha256:3d632903e6af34139a37f18055c4f1bfd9b7205ae1138f1e5e8940ddc1d176f9}
-    container_name: uptime-kuma
+  # 6. Docker Log Viewer & Container Monitor
+  dozzle:
+    image: ${DOZZLE_IMAGE:-amir20/dozzle@sha256:a8419b054f7a2737d82bb6deea0b48fd8b348d78e333644db55a9c09d2ce5cfe}
+    container_name: dozzle
     restart: unless-stopped
     cap_drop:
       - NET_RAW
       - NET_ADMIN
     security_opt:
       - no-new-privileges:true
-    mem_limit: 256m
+    mem_limit: 64m
     volumes:
-      - uptime_kuma_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DOZZLE_NO_ANALYTICS=true
 
 volumes:
   openclaw_data:
   openclaw_home:
   caddy_data:
   caddy_config:
-  uptime_kuma_data:

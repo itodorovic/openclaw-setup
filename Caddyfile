@@ -19,9 +19,9 @@ http://{$ADMIN_DOMAIN} {
     }
 }
 
-# --- Uptime Kuma Status Page ---
+# --- Docker Log Viewer (Dozzle) ---
 http://{$STATUS_DOMAIN} {
-    reverse_proxy uptime-kuma:3001 {
+    reverse_proxy dozzle:8080 {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-Proto https
     }

@@ -21,6 +21,7 @@ show_menu() {
   echo "  8) Container status"
   echo "  9) OpenClaw CLI shell"
   echo " 10) OpenAI Codex OAuth login"
+  echo " 11) Lazydocker (container monitor TUI)"
   echo "  s) System shell (bash)"
   echo "  0) Exit"
   echo ""
@@ -257,6 +258,14 @@ openai_login() {
   echo "  Done. Restart gateway for the new credentials to take effect."
 }
 
+lazydocker_tui() {
+  if command -v lazydocker &>/dev/null; then
+    lazydocker
+  else
+    echo "  lazydocker not found. Check volume mount."
+  fi
+}
+
 # Main loop
 while true; do
   show_menu
@@ -272,6 +281,7 @@ while true; do
     8) container_status ;;
     9) cli_shell ;;
     10) openai_login ;;
+    11) lazydocker_tui ;;
     s) echo "  Type 'exit' to return to menu."; bash ;;
     0) echo "  Goodbye."; exit 0 ;;
     *) echo "  Invalid choice." ;;
