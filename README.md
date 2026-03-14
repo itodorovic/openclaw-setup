@@ -25,6 +25,18 @@ All domains are protected by Cloudflare Zero Trust (email-gated SSO). No public 
 | Backups | Encrypted nightly to Cloudflare R2 (optional) |
 | Monitoring | Dozzle (container logs) + lazydocker (TUI in admin) |
 
+## Containers
+
+| Container | Memory | Role |
+|-----------|-------:|------|
+| `openclaw-gateway` | 2048 MB | AI agent runtime — runs models, WebSocket API, dashboard backend, health endpoint |
+| `openclaw-admin` | 256 MB | Web terminal (ttyd) serving the admin console menu — device pairing, OAuth, updates |
+| `caddy-proxy` | 128 MB | Internal reverse proxy — routes `ai.*` → gateway, `admin.*` → ttyd, `status.*` → Dozzle |
+| `cloudflared` | 128 MB | Cloudflare Tunnel client — connects all three domains to the droplet with no public ports |
+| `dozzle` | 64 MB | Live container log viewer available at `status.*` — read-only Docker socket access |
+| `watchtower` | 128 MB | Nightly auto-update for infrastructure containers (Caddy, cloudflared, Dozzle). OpenClaw excluded |
+| `volume-backup` | 256 MB | Encrypted nightly backup of OpenClaw data volume to Cloudflare R2 (when configured) |
+
 ## Prerequisites
 
 1. [Terraform](https://developer.hashicorp.com/terraform/install) ≥ 1.5
