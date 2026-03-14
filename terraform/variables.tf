@@ -130,5 +130,5 @@ variable "browser_enabled" {
 variable "extra_apt_packages" {
   description = "Space-separated list of extra apt packages to install in the gateway container (e.g., ffmpeg build-essential jq)."
   type        = string
-  default     = "git curl jq"
+  default     = "git curl jq gh"
 }
