@@ -50,6 +50,7 @@ write_files:
       CLOUDFLARE_TUNNEL_TOKEN=${cloudflare_tunnel_token}
       OPENCLAW_GATEWAY_AUTH_MODE=${gateway_auth_mode}
       OPENCLAW_GATEWAY_TOKEN=${gateway_token}
+      DOCKER_GID=__DOCKER_GID__
       AWS_S3_BUCKET_NAME=${s3_bucket}
       AWS_ACCESS_KEY_ID=${s3_access_key}
       AWS_SECRET_ACCESS_KEY=${s3_secret_key}
@@ -140,6 +141,9 @@ runcmd:
 
   # 3. Install Docker + Compose plugin
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+  # 3b. Set Docker GID in .env template (for admin container group_add)
+  - sed -i "s/__DOCKER_GID__/$(getent group docker | cut -d: -f3)/" /root/.openclaw-env
 
   # 4. Clone repository
   - bash -lc 'if [ ! -d /root/openclaw-setup/.git ]; then git clone ${repo_clone_url} /root/openclaw-setup; else git -C /root/openclaw-setup pull --ff-only; fi'
