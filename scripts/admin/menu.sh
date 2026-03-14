@@ -14,11 +14,12 @@ show_menu() {
   echo ""
   echo "  1) Dashboard URL (connect browser)"
   echo "  2) Devices (pair, list, remove)"
-  echo "  3) Restart gateway"
-  echo "  4) OpenAI Codex OAuth login"
-  echo "  5) Update OpenClaw"
-  echo "  6) Lazydocker (logs + monitor)"
-  echo "  7) OpenClaw CLI shell"
+  echo "  3) Backups (list, status, backup, restore)"
+  echo "  4) Restart gateway"
+  echo "  5) OpenAI Codex OAuth login"
+  echo "  6) Update OpenClaw"
+  echo "  7) Lazydocker (logs + monitor)"
+  echo "  8) OpenClaw CLI shell"
   echo "  s) System shell (bash)"
   echo "  0) Exit"
   echo ""
@@ -182,6 +183,176 @@ remove_device() {
   "
 }
 
+# ── Backups Submenu ──────────────────────────────────────
+
+COMPOSE_FILE="/root/openclaw-setup/docker-compose.yml"
+
+backups_menu() {
+  if ! ensure_docker; then return; fi
+  while true; do
+    echo ""
+    echo "  ── Backups ──────────────────────"
+    echo ""
+    echo "  1) List backups (remote)"
+    echo "  2) Last backup status"
+    echo "  3) Backup now"
+    echo "  4) Restore from backup"
+    echo "  b) Back to main menu"
+    echo ""
+    printf "  Choice: "
+    read -r bchoice
+    case "$bchoice" in
+      1) list_backups ;;
+      2) last_backup_status ;;
+      3) manual_backup ;;
+      4) restore_backup ;;
+      b) return ;;
+      *) echo "  Invalid choice." ;;
+    esac
+  done
+}
+
+list_backups() {
+  echo ""
+  echo "  Remote backups (R2):"
+  echo "  ────────────────────"
+  # Extract uploaded filenames from container logs
+  UPLOADS=$(docker logs volume-backup 2>&1 \
+    | grep -oP 'Uploaded a copy of backup `/tmp/\K[^`]+' \
+    | sort -u)
+  if [ -z "$UPLOADS" ]; then
+    echo "  No backups found in logs."
+    return
+  fi
+  IDX=0
+  while IFS= read -r f; do
+    IDX=$((IDX + 1))
+    echo "  $IDX) $f"
+  done <<< "$UPLOADS"
+  echo ""
+  echo "  Total: $IDX backup(s)"
+}
+
+last_backup_status() {
+  echo ""
+  echo "  Last backup log:"
+  echo "  ────────────────"
+  docker logs volume-backup 2>&1 | tail -25 | sed 's/^/  /'
+}
+
+manual_backup() {
+  echo ""
+  printf "  Run backup now? (y/N): "
+  read -r confirm
+  case "$confirm" in
+    y|Y)
+      echo "  Starting backup..."
+      docker exec volume-backup backup 2>&1 | sed 's/^/  /'
+      echo ""
+      echo "  Done."
+      ;;
+    *) echo "  Cancelled." ;;
+  esac
+}
+
+restore_backup() {
+  echo ""
+  echo "  ⚠ Restore will REPLACE current OpenClaw data."
+  echo ""
+
+  # List available backups from logs
+  echo "  Fetching backup list..."
+  BACKUP_LIST=$(docker logs volume-backup 2>&1 \
+    | grep -oP 'Uploaded a copy of backup `/tmp/\K[^`]+' \
+    | sort -u)
+
+  if [ -z "$BACKUP_LIST" ]; then
+    echo "  No backups found in logs. Enter filename manually."
+    printf "  Filename (e.g. backup-2026-03-14T21-00-37.tar.gz.gpg): "
+    read -r BACKUP_FILE
+    [ -z "$BACKUP_FILE" ] && echo "  Cancelled." && return
+  else
+    echo ""
+    IDX=0
+    declare -a BACKUP_ARRAY=()
+    while IFS= read -r line; do
+      IDX=$((IDX + 1))
+      BACKUP_ARRAY+=("$line")
+      echo "  $IDX) $line"
+    done <<< "$BACKUP_LIST"
+    echo ""
+    printf "  Enter number (or filename): "
+    read -r pick
+    [ -z "$pick" ] && echo "  Cancelled." && return
+    if [[ "$pick" =~ ^[0-9]+$ ]] && [ "$pick" -ge 1 ] && [ "$pick" -le "${#BACKUP_ARRAY[@]}" ]; then
+      BACKUP_FILE="${BACKUP_ARRAY[$((pick - 1))]}"
+    else
+      BACKUP_FILE="$pick"
+    fi
+  fi
+
+  echo ""
+  echo "  Selected: $BACKUP_FILE"
+  printf "  Confirm restore? This will stop the gateway. (yes/N): "
+  read -r confirm
+  [ "$confirm" != "yes" ] && echo "  Cancelled." && return
+
+  # Read S3 + GPG credentials from the volume-backup container
+  eval "$(docker exec volume-backup env 2>/dev/null \
+    | grep -E '^(AWS_|GPG_PASSPHRASE=)' \
+    | sed "s/'/'\\\\''/g; s/=\\(.*\\)/='\\1'/")"
+
+  echo ""
+  echo "  [1/5] Stopping gateway + admin..."
+  docker compose -f "$COMPOSE_FILE" stop openclaw-gateway openclaw-admin
+
+  echo "  [2/5] Downloading backup from R2..."
+  docker volume create restore_tmp >/dev/null 2>&1 || true
+  docker run --rm \
+    -e MC_HOST_r2="${AWS_ENDPOINT_PROTO:-https}://${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}@${AWS_ENDPOINT}" \
+    -v restore_tmp:/tmp/restore \
+    minio/mc cp "r2/${AWS_S3_BUCKET_NAME}/${BACKUP_FILE}" /tmp/restore/backup.archive 2>&1 | sed 's/^/  /'
+
+  IS_GPG=false
+  case "$BACKUP_FILE" in *.gpg) IS_GPG=true ;; esac
+
+  echo "  [3/5] Decrypting and extracting..."
+  if [ "$IS_GPG" = "true" ]; then
+    docker run --rm \
+      -e GPG_PASSPHRASE="$GPG_PASSPHRASE" \
+      -v restore_tmp:/tmp/restore \
+      -v openclaw-setup_openclaw_data:/data \
+      alpine sh -c '
+        apk add --no-cache gnupg >/dev/null 2>&1
+        gpg --batch --yes --passphrase "$GPG_PASSPHRASE" \
+          -d /tmp/restore/backup.archive | tar xzf - -C /
+        chown -R 1000:1000 /data
+      ' 2>&1 | sed 's/^/  /'
+  else
+    docker run --rm \
+      -v restore_tmp:/tmp/restore \
+      -v openclaw-setup_openclaw_data:/data \
+      alpine sh -c '
+        tar xzf /tmp/restore/backup.archive -C /
+        chown -R 1000:1000 /data
+      ' 2>&1 | sed 's/^/  /'
+  fi
+
+  echo "  [4/5] Cleaning up..."
+  docker volume rm restore_tmp >/dev/null 2>&1 || true
+
+  echo "  [5/5] Starting gateway + admin..."
+  docker compose -f "$COMPOSE_FILE" up -d openclaw-gateway openclaw-admin
+  sleep 5
+  for i in $(seq 1 12); do
+    status=$(docker inspect openclaw-gateway --format '{{.State.Health.Status}}' 2>/dev/null)
+    [ "$status" = "healthy" ] && break
+    sleep 5
+  done
+  echo ""
+  echo "  Restore complete. Gateway status: $(docker inspect openclaw-gateway --format '{{.State.Health.Status}}' 2>/dev/null)"
+}
+
 # ── Core Functions ───────────────────────────────────────
 
 ensure_docker() {
@@ -239,7 +410,7 @@ openai_login() {
   if ! ensure_docker; then return; fi
   docker exec -it openclaw-gateway node /app/dist/index.js models auth login --provider openai-codex
   echo ""
-  echo "  Done. Restart gateway (option 3) for the new credentials to take effect."
+  echo "  Done. Restart gateway (option 4) for the new credentials to take effect."
 }
 
 lazydocker_tui() {
@@ -300,11 +471,12 @@ while true; do
   case "$choice" in
     1) dashboard_url ;;
     2) devices_menu ;;
-    3) restart_gateway ;;
-    4) openai_login ;;
-    5) update_openclaw ;;
-    6) lazydocker_tui ;;
-    7) cli_shell ;;
+    3) backups_menu ;;
+    4) restart_gateway ;;
+    5) openai_login ;;
+    6) update_openclaw ;;
+    7) lazydocker_tui ;;
+    8) cli_shell ;;
     s) echo "  Type 'exit' to return to menu."; bash ;;
     0) echo "  Goodbye."; exit 0 ;;
     *) echo "  Invalid choice." ;;

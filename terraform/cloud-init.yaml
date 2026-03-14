@@ -57,7 +57,7 @@ write_files:
       AWS_REGION=${s3_region}
       AWS_ENDPOINT=${s3_endpoint}
       AWS_ENDPOINT_PROTO=https
-      BACKUP_ARCHIVE_PASSWORD=${backup_password}
+      GPG_PASSPHRASE=${backup_password}
 
   - path: /root/.openclaw-config.json
     permissions: '0644'
@@ -210,5 +210,5 @@ runcmd:
 
   # 15. Scrub secrets from cloud-init logs
   - truncate -s 0 /var/log/cloud-init-output.log
-  - sed -i '/TUNNEL_TOKEN\|GATEWAY_TOKEN\|SECRET_ACCESS_KEY\|ARCHIVE_PASSWORD/d' /var/log/cloud-init.log
+  - sed -i '/TUNNEL_TOKEN\|GATEWAY_TOKEN\|SECRET_ACCESS_KEY\|GPG_PASSPHRASE/d' /var/log/cloud-init.log
   - rm -f /root/.openclaw-env /root/.openclaw-config.json
