@@ -28,7 +28,11 @@ resource "digitalocean_droplet" "openclaw" {
     backup_password         = var.r2_backup_access_key_id != "" ? random_password.backup_passphrase.result : ""
     openclaw_model          = var.openclaw_model
     browser_enabled         = var.browser_enabled ? "true" : "false"
-    extra_apt_packages      = var.extra_apt_packages
+    extra_apt_packages           = var.extra_apt_packages
+    enable_agent_to_agent        = var.enable_agent_to_agent
+    subagent_max_spawn_depth     = var.subagent_max_spawn_depth
+    subagent_max_concurrent      = var.subagent_max_concurrent
+    subagent_run_timeout_seconds = var.subagent_run_timeout_seconds
   })
 }
 

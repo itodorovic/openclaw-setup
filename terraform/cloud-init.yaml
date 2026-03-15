@@ -71,6 +71,12 @@ write_files:
             "workspace": "~/.openclaw/workspace",
             "memorySearch": {
               "enabled": false
+            },
+            "subagents": {
+              "maxSpawnDepth": ${subagent_max_spawn_depth},
+              "maxConcurrent": ${subagent_max_concurrent},
+              "maxChildrenPerAgent": 5,
+              "runTimeoutSeconds": ${subagent_run_timeout_seconds}
             }
           }
         },
@@ -91,7 +97,10 @@ write_files:
           "trustedProxies": ["172.16.0.0/12", "10.0.0.0/8"]
         },
         "tools": {
-          "profile": "coding"
+          "profile": "coding",
+          "agentToAgent": {
+            "enabled": ${enable_agent_to_agent}
+          }
         },
         "session": {
           "dmScope": "per-channel-peer"

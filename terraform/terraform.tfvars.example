@@ -30,4 +30,10 @@ repo_clone_url = "https://github.com/itodorovic/openclaw-setup.git"
 # ── OpenClaw ────────────────────────────────────────────────────────────────
 # openclaw_model     = "openai-codex/gpt-5.4"       # ChatGPT Plus via OAuth (default)
 # browser_enabled    = true
-# extra_apt_packages = "git curl jq"                 # system tools for plugins
+# extra_apt_packages = "git curl jq gh build-essential python3"  # system tools for plugins
+
+# ── Multi-Agent Orchestration ─────────────────────────────────────────────
+# enable_agent_to_agent        = false   # let agents message each other
+# subagent_max_spawn_depth     = 1       # 1 = flat, 2 = orchestrator can spawn workers
+# subagent_max_concurrent      = 3       # parallel sub-agent runs (keep low on small droplets)
+# subagent_run_timeout_seconds = 1800    # 30 min per sub-agent run (0 = no timeout)

@@ -130,5 +130,31 @@ variable "browser_enabled" {
 variable "extra_apt_packages" {
   description = "Space-separated list of extra apt packages to install in the gateway container (e.g., ffmpeg build-essential jq)."
   type        = string
-  default     = "git curl jq gh"
+  default     = "git curl jq gh build-essential python3"
+}
+
+# ── Multi-Agent Orchestration ───────────────────────────────────────────────
+
+variable "enable_agent_to_agent" {
+  description = "Enable agent-to-agent messaging so agents can communicate with each other."
+  type        = bool
+  default     = false
+}
+
+variable "subagent_max_spawn_depth" {
+  description = "Max nesting depth for sub-agents. 1 = no nesting, 2 = orchestrator can spawn workers."
+  type        = number
+  default     = 1
+}
+
+variable "subagent_max_concurrent" {
+  description = "Max parallel sub-agent runs. Keep low on small droplets."
+  type        = number
+  default     = 3
+}
+
+variable "subagent_run_timeout_seconds" {
+  description = "Timeout per sub-agent run in seconds. 0 = no timeout."
+  type        = number
+  default     = 1800
 }
