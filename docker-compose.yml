@@ -112,7 +112,7 @@ services:
     container_name: volume-backup
     restart: unless-stopped
     volumes:
-      - ./data:/backup/openclaw_data:ro
+      - ./data:/backup:ro
       - /var/run/docker.sock:/var/run/docker.sock
     env_file:
       - .env

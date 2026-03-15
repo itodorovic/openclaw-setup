@@ -326,8 +326,9 @@ restore_backup() {
       -v /root/openclaw-setup/data:/data \
       alpine sh -c '
         apk add --no-cache gnupg >/dev/null 2>&1
+        rm -rf /data/*
         gpg --batch --yes --passphrase "$GPG_PASSPHRASE" \
-          -d /tmp/restore/backup.archive | tar xzf - -C /
+          -d /tmp/restore/backup.archive | tar xzf - -C /data --strip-components=1
         chown -R 1000:1000 /data
       ' 2>&1 | sed 's/^/  /'
   else
@@ -335,7 +336,8 @@ restore_backup() {
       -v restore_tmp:/tmp/restore \
       -v /root/openclaw-setup/data:/data \
       alpine sh -c '
-        tar xzf /tmp/restore/backup.archive -C /
+        rm -rf /data/*
+        tar xzf /tmp/restore/backup.archive -C /data --strip-components=1
         chown -R 1000:1000 /data
       ' 2>&1 | sed 's/^/  /'
   fi
