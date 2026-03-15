@@ -462,9 +462,14 @@ update_openclaw() {
 
 cli_shell() {
   echo ""
-  echo "  Starting OpenClaw CLI... (type 'exit' to return to menu)"
+  echo "  OpenClaw CLI shell (type 'exit' to return to menu)"
   echo "  ──────────────────────────────────────────────────────────"
-  NODE_OPTIONS='--max-old-space-size=768' node /app/dist/index.js "$@" || echo "  CLI exited with error."
+  echo "  Run any 'openclaw' command, e.g.:"
+  echo "    openclaw config set channels.whatsapp.dmPolicy pairing"
+  echo "    openclaw channels login --channel whatsapp"
+  echo "    openclaw doctor"
+  echo ""
+  NODE_OPTIONS='--max-old-space-size=768' PS1='openclaw> ' bash --norc --noprofile
 }
 
 # ── Main Loop ────────────────────────────────────────────
