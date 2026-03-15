@@ -1,7 +1,8 @@
 services:
   # 1. The Core AI Agent
   openclaw-gateway:
-    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    build: .
+    image: openclaw-custom:latest
     container_name: openclaw-gateway
     restart: unless-stopped
     labels:
@@ -17,8 +18,6 @@ services:
       - PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
       - NODE_COMPILE_CACHE=/home/node/.cache/node-compile
       - OPENCLAW_NO_RESPAWN=1
-    security_opt:
-      - no-new-privileges:true
     mem_limit: 2048m
     healthcheck:
       test:
@@ -31,7 +30,8 @@ services:
 
   # 1b. Admin Console (web terminal for device management & CLI access)
   openclaw-admin:
-    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    build: .
+    image: openclaw-custom:latest
     container_name: openclaw-admin
     restart: unless-stopped
     labels:
@@ -50,8 +50,6 @@ services:
     environment:
       - NODE_ENV=production
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
-    security_opt:
-      - no-new-privileges:true
     mem_limit: 256m
     entrypoint: ["/usr/local/bin/ttyd", "-p", "7681", "-W", "bash", "/admin/menu.sh"]
 

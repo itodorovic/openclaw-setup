@@ -438,8 +438,8 @@ update_openclaw() {
   read -r confirm
   case "$confirm" in
     y|Y)
-      echo "  Pulling latest image..."
-      docker compose -f /root/openclaw-setup/docker-compose.yml pull openclaw-gateway
+      echo "  Pulling latest base image and rebuilding..."
+      docker compose -f /root/openclaw-setup/docker-compose.yml build --pull
       echo "  Recreating gateway + admin..."
       docker compose -f /root/openclaw-setup/docker-compose.yml up -d openclaw-gateway openclaw-admin
       echo "  Waiting for health..."

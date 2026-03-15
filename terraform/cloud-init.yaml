@@ -168,8 +168,8 @@ runcmd:
   - cp /root/.openclaw-env /root/openclaw-setup/.env
   - chmod 600 /root/openclaw-setup/.env
 
-  # 7. Pull images and create volumes before writing config
-  - cd /root/openclaw-setup && docker compose pull
+  # 7. Build custom image (pulls base + adds sudo) and pull remaining images
+  - cd /root/openclaw-setup && docker compose build --pull && docker compose pull
 
   # 8. Create data directory for bind mount and seed config
   - mkdir -p /root/openclaw-setup/data
