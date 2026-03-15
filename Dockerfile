@@ -7,3 +7,5 @@ RUN apt-get update \
     && echo 'node ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 ENV PATH="/usr/local/go/bin:/home/node/go/bin:${PATH}"
 USER node
+RUN mkdir -p /home/node/.npm-global && npm config set prefix /home/node/.npm-global
+ENV PATH="/home/node/.npm-global/bin:${PATH}"
