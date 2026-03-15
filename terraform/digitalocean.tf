@@ -69,29 +69,36 @@ resource "terraform_data" "wait_for_cloudinit" {
     content     = <<-SCRIPT
       #!/bin/bash
       set -e
-      echo "Waiting for cloud-init to finish..."
+      MAX_WAIT=900
+      START=$(date +%s)
       LAST=""
+      echo "Waiting for cloud-init (timeout: $${MAX_WAIT}s)..."
       while true; do
+        ELAPSED=$(( $(date +%s) - START ))
+        if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
+          echo "TIMEOUT after $${ELAPSED}s — cloud-init did not finish"
+          exit 1
+        fi
         RAW=$(cloud-init status 2>&1) || true
         STATUS=$(echo "$RAW" | head -1 | sed 's/^status: //')
         PROGRESS=""
-        [ -f /swapfile ]                                                                      && PROGRESS="$PROGRESS swap"
-        command -v docker >/dev/null 2>&1                                                      && PROGRESS="$PROGRESS docker"
-        [ -d /root/openclaw-setup/.git ]                                                       && PROGRESS="$PROGRESS repo"
-        command -v ttyd >/dev/null 2>&1                                                        && PROGRESS="$PROGRESS ttyd"
-        docker ps --format '{{.Names}}' 2>/dev/null | grep -q openclaw-gateway                 && PROGRESS="$PROGRESS gateway"
-        docker ps --format '{{.Names}}' 2>/dev/null | grep -q cloudflared                      && PROGRESS="$PROGRESS tunnel"
-        docker ps --format '{{.Names}}' 2>/dev/null | grep -q dozzle                           && PROGRESS="$PROGRESS dozzle"
-        LINE="cloud-init: $STATUS |$PROGRESS"
+        [ -f /swapfile ]                                                  && PROGRESS="$${PROGRESS}swap "
+        command -v docker >/dev/null 2>&1                                  && PROGRESS="$${PROGRESS}docker "
+        [ -d /root/openclaw-setup/.git ]                                   && PROGRESS="$${PROGRESS}repo "
+        command -v ttyd >/dev/null 2>&1                                    && PROGRESS="$${PROGRESS}ttyd "
+        docker ps --format '{{.Names}}' 2>/dev/null | grep -q openclaw-gateway && PROGRESS="$${PROGRESS}gateway "
+        docker ps --format '{{.Names}}' 2>/dev/null | grep -q cloudflared      && PROGRESS="$${PROGRESS}tunnel "
+        docker ps --format '{{.Names}}' 2>/dev/null | grep -q dozzle            && PROGRESS="$${PROGRESS}dozzle "
+        LINE="[$${ELAPSED}s] $STATUS | $PROGRESS"
         if [ "$LINE" != "$LAST" ]; then
           echo "$LINE"
           LAST="$LINE"
         fi
         case "$STATUS" in
-          done)  echo "cloud-init: finished OK"; exit 0 ;;
-          error) echo "cloud-init: finished with errors"; exit 1 ;;
+          done)  echo "cloud-init: OK ($${ELAPSED}s)"; exit 0 ;;
+          error) echo "cloud-init: FAILED ($${ELAPSED}s) — check /var/log/cloud-init-output.log"; exit 1 ;;
         esac
-        sleep 5
+        sleep 10
       done
     SCRIPT
     destination = "/tmp/wait-cloudinit.sh"
@@ -100,6 +107,7 @@ resource "terraform_data" "wait_for_cloudinit" {
       host        = digitalocean_droplet.openclaw.ipv4_address
       user        = "root"
       private_key = file(local.ssh_private_key_path)
+      timeout     = "15m"
     }
   }
 
@@ -110,6 +118,7 @@ resource "terraform_data" "wait_for_cloudinit" {
       host        = digitalocean_droplet.openclaw.ipv4_address
       user        = "root"
       private_key = file(local.ssh_private_key_path)
+      timeout     = "15m"
     }
   }
 }
@@ -130,13 +139,14 @@ resource "terraform_data" "restart_cloudflared" {
     inline = [
       "docker restart cloudflared",
       "sleep 5",
-      "docker logs cloudflared --tail 5 2>&1",
+      "echo \"cloudflared: $(docker inspect cloudflared --format '{{.State.Status}}' 2>/dev/null || echo unknown)\"",
     ]
     connection {
       type        = "ssh"
       host        = digitalocean_droplet.openclaw.ipv4_address
       user        = "root"
       private_key = file(local.ssh_private_key_path)
+      timeout     = "5m"
     }
   }
 }
