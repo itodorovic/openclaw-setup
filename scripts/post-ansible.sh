@@ -2,28 +2,27 @@
 # post-ansible.sh — Run as ROOT on the droplet after the Ansible playbook completes.
 #
 # Usage:
-#   bash post-ansible.sh <tailscale-authkey> <tailscale-domain>
+#   bash post-ansible.sh <tailscale-authkey>
 #
 # Example:
-#   bash post-ansible.sh tskey-auth-xxx...  openclaw.tail51e710.ts.net
+#   bash post-ansible.sh tskey-auth-xxx...
 #
 # What it does:
 #   1. Fixes pnpm directory ownership (Ansible creates them as root)
 #   2. Installs Tailscale and connects to your tailnet
-#   3. Configures the OpenClaw gateway for Tailscale Serve + identity auth
+#   3. Auto-detects the Tailscale hostname
+#   4. Grants openclaw user Tailscale operator rights (required for serve)
+#   5. Configures the OpenClaw gateway for Tailscale Serve + identity auth
 
 set -euo pipefail
 
 AUTHKEY="${1:-}"
-TAILSCALE_DOMAIN="${2:-}"
 
 # ── Validate args ──────────────────────────────────────────────────────────────
-if [[ -z "$AUTHKEY" || -z "$TAILSCALE_DOMAIN" ]]; then
-  echo "Usage: $0 <tailscale-authkey> <tailscale-domain>"
+if [[ -z "$AUTHKEY" ]]; then
+  echo "Usage: $0 <tailscale-authkey>"
   echo ""
   echo "  tailscale-authkey:  from https://login.tailscale.com/admin/settings/keys"
-  echo "  tailscale-domain:   e.g. openclaw.tail51e710.ts.net"
-  echo "                      (check after connecting: tailscale status)"
   exit 1
 fi
 
@@ -48,6 +47,23 @@ fi
 tailscale up --authkey "$AUTHKEY"
 echo "    Connected. Status:"
 tailscale status
+
+# Auto-detect Tailscale hostname
+TAILSCALE_DOMAIN=$(tailscale status --json | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+self = d.get('Self', {})
+dns = self.get('DNSName', '').rstrip('.')
+print(dns)
+")
+if [[ -z "$TAILSCALE_DOMAIN" ]]; then
+  echo "    Error: could not detect Tailscale domain. Check tailscale status."
+  exit 1
+fi
+echo "    Tailscale domain: $TAILSCALE_DOMAIN"
+
+# Grant openclaw operator rights so it can manage tailscale serve
+tailscale set --operator=openclaw
 
 echo "==> [3/3] Configuring OpenClaw gateway for Tailscale..."
 if [[ ! -f "$OPENCLAW_CONFIG" ]]; then

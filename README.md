@@ -62,22 +62,45 @@ This script fixes pnpm permissions, installs Tailscale, and configures the gatew
 
 ```bash
 ssh root@<droplet-ip>
-bash <(curl -fsSL https://raw.githubusercontent.com/itodorovic/openclaw-setup/ansible/scripts/post-ansible.sh) \
-  <tailscale-authkey> \
-  <machine-name>.<tailnet>.ts.net
+bash <(curl -fsSL https://raw.githubusercontent.com/itodorovic/openclaw-setup/main/scripts/post-ansible.sh) \
+  <tailscale-authkey>
 ```
 
-The Tailscale domain (e.g. `openclaw.tail51e710.ts.net`) is shown in `tailscale status` after connecting.
-If you don't know it yet, run `tailscale up --authkey <key>` first, then `tailscale status` to get it,
-then re-run the full script.
+The script auto-detects the Tailscale hostname — no need to pass it manually.
 
 ### 5. Access the dashboard
 
-Open in any browser on your Tailscale network — no token or pairing needed:
+Open in any browser on your Tailscale network:
 
 ```
 https://<machine-name>.<tailnet>.ts.net
 ```
+
+On first visit the browser will be blocked with **"pairing required"**. This is a one-time device registration. Approve it from the droplet (as root):
+
+```bash
+ssh root@<droplet-ip>
+python3 -c "
+import json, time
+with open('/home/openclaw/.openclaw/devices/pending.json') as f:
+    pending = json.load(f)
+with open('/home/openclaw/.openclaw/devices/paired.json') as f:
+    paired = json.load(f)
+now = int(time.time() * 1000)
+for req in pending.values():
+    did = req['deviceId']
+    paired[did] = {'deviceId': did, 'publicKey': req['publicKey'], 'platform': req['platform'], 'clientId': req['clientId'], 'clientMode': req['clientMode'], 'role': req['role'], 'roles': req['roles'], 'scopes': req['scopes'], 'approvedScopes': req['scopes'], 'tokens': {}, 'createdAtMs': req['ts'], 'approvedAtMs': now}
+    print('Approved:', did)
+with open('/home/openclaw/.openclaw/devices/paired.json', 'w') as f:
+    json.dump(paired, f, indent=2)
+with open('/home/openclaw/.openclaw/devices/pending.json', 'w') as f:
+    json.dump({}, f)
+"
+# Restart to pick up the approved device
+su - openclaw -s /bin/bash -c "XDG_RUNTIME_DIR=/run/user/\$(id -u openclaw) systemctl --user restart openclaw-gateway"
+```
+
+Refresh the browser — it will connect. Each new browser profile needs this once.
 
 ## Variables
 

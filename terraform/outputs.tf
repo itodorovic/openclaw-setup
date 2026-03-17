@@ -23,17 +23,18 @@ output "next_steps" {
        ssh root@${digitalocean_droplet.openclaw.ipv4_address}
        curl -fsSL https://raw.githubusercontent.com/openclaw/openclaw-ansible/main/install.sh | bash
 
-    2. Fix pnpm permissions (as root, after Ansible):
-       chown -R openclaw:openclaw /home/openclaw/.local
-
-    3. SSH as openclaw user and onboard (use tmux!):
+    2. Onboard (as openclaw user — use tmux!):
        ssh openclaw@${digitalocean_droplet.openclaw.ipv4_address}
        tmux
        openclaw onboard --install-daemon
 
-    4. Access the dashboard:
-       ssh -L 18789:127.0.0.1:18789 openclaw@${digitalocean_droplet.openclaw.ipv4_address}
-       Then open: http://localhost:18789
+    3. Run post-Ansible setup (as root):
+       ssh root@${digitalocean_droplet.openclaw.ipv4_address}
+       bash <(curl -fsSL https://raw.githubusercontent.com/itodorovic/openclaw-setup/main/scripts/post-ansible.sh) \
+         <tailscale-authkey> <machine-name>.<tailnet>.ts.net
+
+    4. Access the dashboard (from any Tailscale device):
+       https://<machine-name>.<tailnet>.ts.net
 
   EOT
 }
