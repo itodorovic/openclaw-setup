@@ -25,6 +25,9 @@ data/
 .vscode/
 .idea/
 
+# Claude Code
+.claude/
+
 # Temporary working notes
 improvements.md
 tfplan
