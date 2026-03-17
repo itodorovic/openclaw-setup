@@ -42,15 +42,7 @@ ssh root@<droplet-ip>
 curl -fsSL https://raw.githubusercontent.com/openclaw/openclaw-ansible/main/install.sh | bash
 ```
 
-### 3. Fix pnpm permissions (as root, after Ansible)
-
-The Ansible playbook creates pnpm directories as root. Fix ownership before onboarding:
-
-```bash
-chown -R openclaw:openclaw /home/openclaw/.local
-```
-
-### 4. Onboard (as openclaw user)
+### 3. Onboard (as openclaw user)
 
 **Always SSH directly as openclaw — never `sudo su - openclaw` (breaks systemd user services).**
 
@@ -62,42 +54,24 @@ openclaw onboard --install-daemon
 
 If disconnected, reconnect and run `tmux attach`.
 
-### 5. Set up Tailscale
+### 4. Run post-Ansible setup (as root)
+
+This script fixes pnpm permissions, installs Tailscale, and configures the gateway in one shot.
+
+**Before running:** enable HTTPS Certificates in [Tailscale admin DNS settings](https://login.tailscale.com/admin/dns) and generate an auth key from [tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
 
 ```bash
 ssh root@<droplet-ip>
-curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up --authkey <your-tailscale-authkey>
+bash <(curl -fsSL https://raw.githubusercontent.com/itodorovic/openclaw-setup/ansible/scripts/post-ansible.sh) \
+  <tailscale-authkey> \
+  <machine-name>.<tailnet>.ts.net
 ```
 
-Get an auth key from [tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
+The Tailscale domain (e.g. `openclaw.tail51e710.ts.net`) is shown in `tailscale status` after connecting.
+If you don't know it yet, run `tailscale up --authkey <key>` first, then `tailscale status` to get it,
+then re-run the full script.
 
-### 6. Enable Tailscale dashboard access
-
-Add to `~/.openclaw/openclaw.json` (as openclaw user) under `gateway`:
-
-```json
-{
-  "gateway": {
-    "tailscale": { "mode": "serve" },
-    "auth": { "allowTailscale": true },
-    "controlUi": {
-      "allowedOrigins": ["https://<machine-name>.<tailnet>.ts.net"]
-    },
-    "trustedProxies": ["127.0.0.1"]
-  }
-}
-```
-
-Then restart the daemon:
-
-```bash
-systemctl --user restart openclaw-gateway
-```
-
-**Requirements:** Enable HTTPS Certificates in [Tailscale admin DNS settings](https://login.tailscale.com/admin/dns).
-
-### 7. Access the dashboard
+### 5. Access the dashboard
 
 Open in any browser on your Tailscale network — no token or pairing needed:
 
