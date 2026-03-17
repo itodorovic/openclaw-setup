@@ -34,9 +34,8 @@ fi
 OPENCLAW_HOME="/home/openclaw"
 OPENCLAW_CONFIG="$OPENCLAW_HOME/.openclaw/openclaw.json"
 
-echo "==> [1/3] Fixing pnpm directory ownership..."
-chown -R openclaw:openclaw "$OPENCLAW_HOME/.local"
-chown -R openclaw:openclaw "$OPENCLAW_HOME/.cache"
+echo "==> [1/3] Fixing home directory ownership..."
+chown -R openclaw:openclaw "$OPENCLAW_HOME"
 echo "    Done."
 
 echo "==> [2/3] Installing Tailscale..."
