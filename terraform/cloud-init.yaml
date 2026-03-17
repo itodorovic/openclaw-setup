@@ -1,0 +1,70 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+# Prevent debconf dialogs (kernel upgrade prompts) from hanging cloud-init
+apt:
+  conf: |
+    Dpkg::Options {
+      "--force-confdef";
+      "--force-confold";
+    }
+
+packages:
+  - curl
+  - git
+  - jq
+  - ufw
+  - unattended-upgrades
+  - ansible
+  - build-essential
+  - python3
+  - tmux
+  - gh
+  - ffmpeg
+
+write_files:
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+  # Auto-restart services without prompting (prevents needrestart dialog)
+  - path: /etc/needrestart/conf.d/no-prompt.conf
+    content: |
+      $nrconf{restart} = 'a';
+
+runcmd:
+  # 1. Swap (stability on 2 GB droplets)
+  - fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+  # 2. Basic firewall: allow SSH only, deny everything else
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw --force enable
+
+  # 3. Create openclaw user with SSH access and passwordless sudo
+  - useradd -m -s /bin/bash openclaw
+  - usermod -aG sudo openclaw
+  - echo 'openclaw ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/openclaw
+  - chmod 440 /etc/sudoers.d/openclaw
+  - mkdir -p /home/openclaw/.ssh
+  - echo '${ssh_pubkey}' > /home/openclaw/.ssh/authorized_keys
+  - chown -R openclaw:openclaw /home/openclaw/.ssh
+  - chmod 700 /home/openclaw/.ssh
+  - chmod 600 /home/openclaw/.ssh/authorized_keys
+
+  # 4. Enable lingering so systemd user services survive logout
+  - loginctl enable-linger openclaw
+
+  # 5. Signal that cloud-init is done
+  - touch /var/lib/cloud/instance/boot-finished
+
+# Reboot if kernel was upgraded (package_upgrade: true)
+power_state:
+  mode: reboot
+  condition: /var/run/reboot-required
+  timeout: 30
+  message: "Rebooting after kernel upgrade"

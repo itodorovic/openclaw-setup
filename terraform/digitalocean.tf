@@ -5,6 +5,10 @@ resource "digitalocean_ssh_key" "default" {
   public_key = file(var.ssh_key_path)
 }
 
+locals {
+  ssh_pubkey = trimspace(file(var.ssh_key_path))
+}
+
 resource "digitalocean_droplet" "openclaw" {
   image    = "ubuntu-24-04-x64"
   name     = var.droplet_name
@@ -12,16 +16,9 @@ resource "digitalocean_droplet" "openclaw" {
   size     = var.droplet_size
   ssh_keys = [digitalocean_ssh_key.default.fingerprint]
 
-  # Minimal cloud-init: swap only (Ansible handles everything else)
-  user_data = <<-CLOUD_INIT
-    #cloud-config
-    package_update: true
-    package_upgrade: true
-
-    runcmd:
-      - fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
-      - echo '/swapfile none swap sw 0 0' >> /etc/fstab
-  CLOUD_INIT
+  user_data = templatefile("${path.module}/cloud-init.yaml", {
+    ssh_pubkey = local.ssh_pubkey
+  })
 
   connection {
     type        = "ssh"
@@ -30,11 +27,18 @@ resource "digitalocean_droplet" "openclaw" {
     host        = self.ipv4_address
   }
 
-  # Wait for cloud-init to finish before handing off to Ansible
+  # Wait for cloud-init to finish
   provisioner "remote-exec" {
     inline = [
+      "echo 'Waiting for cloud-init...'",
       "cloud-init status --wait > /dev/null 2>&1 || true",
-      "echo 'Cloud-init complete.'"
+      "echo 'Cloud-init complete.'",
+      "echo '--- Verification ---'",
+      "swapon --show",
+      "id openclaw 2>/dev/null && echo 'openclaw user: OK' || echo 'openclaw user: MISSING'",
+      "cat /home/openclaw/.ssh/authorized_keys | head -1 | cut -c1-40",
+      "loginctl show-user openclaw 2>/dev/null | grep Linger || echo 'linger: not set'",
+      "cat /etc/sudoers.d/openclaw 2>/dev/null || echo 'sudoers: MISSING'",
     ]
   }
 }

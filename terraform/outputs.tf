@@ -3,9 +3,14 @@ output "droplet_ip" {
   value       = digitalocean_droplet.openclaw.ipv4_address
 }
 
-output "ssh_command" {
-  description = "SSH into the droplet as root."
+output "ssh_root" {
+  description = "SSH as root (for system admin)."
   value       = "ssh root@${digitalocean_droplet.openclaw.ipv4_address}"
+}
+
+output "ssh_openclaw" {
+  description = "SSH as openclaw user (for installation and onboarding)."
+  value       = "ssh openclaw@${digitalocean_droplet.openclaw.ipv4_address}"
 }
 
 output "next_steps" {
@@ -14,16 +19,20 @@ output "next_steps" {
 
     === NEXT STEPS ===
 
-    1. Run the Ansible playbook:
-       cd ../ansible
-       ansible-playbook -i '${digitalocean_droplet.openclaw.ipv4_address},' playbook.yml
+    1. Install OpenClaw (as root):
+       ssh root@${digitalocean_droplet.openclaw.ipv4_address}
+       curl -fsSL https://raw.githubusercontent.com/openclaw/openclaw-ansible/main/install.sh | bash
 
-    2. SSH in as openclaw and run onboarding:
+    2. Fix pnpm permissions (as root, after Ansible):
+       chown -R openclaw:openclaw /home/openclaw/.local
+
+    3. SSH as openclaw user and onboard (use tmux!):
        ssh openclaw@${digitalocean_droplet.openclaw.ipv4_address}
+       tmux
        openclaw onboard --install-daemon
 
-    3. Access the dashboard via Tailscale:
-       ssh -L 18789:127.0.0.1:18789 openclaw@<tailscale-ip>
+    4. Access the dashboard:
+       ssh -L 18789:127.0.0.1:18789 openclaw@${digitalocean_droplet.openclaw.ipv4_address}
        Then open: http://localhost:18789
 
   EOT
