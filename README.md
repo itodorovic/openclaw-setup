@@ -70,13 +70,40 @@ curl -fsSL https://tailscale.com/install.sh | sh
 tailscale up --authkey <your-tailscale-authkey>
 ```
 
-### 6. Access the dashboard
+Get an auth key from [tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
 
-```bash
-ssh -L 18789:127.0.0.1:18789 openclaw@<droplet-ip>
+### 6. Enable Tailscale dashboard access
+
+Add to `~/.openclaw/openclaw.json` (as openclaw user) under `gateway`:
+
+```json
+{
+  "gateway": {
+    "tailscale": { "mode": "serve" },
+    "auth": { "allowTailscale": true },
+    "controlUi": {
+      "allowedOrigins": ["https://<machine-name>.<tailnet>.ts.net"]
+    },
+    "trustedProxies": ["127.0.0.1"]
+  }
+}
 ```
 
-Then open: http://localhost:18789
+Then restart the daemon:
+
+```bash
+systemctl --user restart openclaw-gateway
+```
+
+**Requirements:** Enable HTTPS Certificates in [Tailscale admin DNS settings](https://login.tailscale.com/admin/dns).
+
+### 7. Access the dashboard
+
+Open in any browser on your Tailscale network — no token or pairing needed:
+
+```
+https://<machine-name>.<tailnet>.ts.net
+```
 
 ## Variables
 
@@ -103,4 +130,5 @@ terraform destroy
 - fail2ban protects SSH
 - Ansible scopes openclaw sudoers to service management only (intentional)
 - Never commit `terraform.tfstate` or `terraform.tfvars` (gitignored)
-- Access the dashboard only via SSH tunnel — no public web ports
+- Dashboard access via Tailscale Serve only — no public web ports
+- `allowTailscale: true` trusts Tailscale identity headers — only safe because the VPS is a trusted host
