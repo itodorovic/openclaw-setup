@@ -1,7 +1,7 @@
 # ── DigitalOcean Resources ──────────────────────────────────────────────────
 
 resource "digitalocean_ssh_key" "default" {
-  name       = "OpenClaw Deployment Key"
+  name       = "${var.droplet_name}-key"
   public_key = file(var.ssh_key_path)
 }
 
@@ -12,40 +12,52 @@ resource "digitalocean_droplet" "openclaw" {
   size     = var.droplet_size
   ssh_keys = [digitalocean_ssh_key.default.fingerprint]
 
-  user_data = templatefile("${path.module}/cloud-init.yaml", {
-    repo_clone_url          = var.repo_clone_url
-    domain_name             = var.domain_name
-    admin_domain            = var.admin_domain
-    status_domain           = var.status_domain
-    cloudflare_tunnel_token = cloudflare_zero_trust_tunnel_cloudflared.openclaw.tunnel_token
-    gateway_auth_mode       = "token"
-    gateway_token           = random_password.gateway_token.result
-    s3_bucket               = var.r2_backup_access_key_id != "" ? "openclaw-backups" : ""
-    s3_access_key           = var.r2_backup_access_key_id
-    s3_secret_key           = var.r2_backup_secret_access_key
-    s3_region               = "auto"
-    s3_endpoint             = var.r2_backup_access_key_id != "" ? "${var.cloudflare_account_id}.r2.cloudflarestorage.com" : ""
-    backup_password         = var.r2_backup_access_key_id != "" ? random_password.backup_passphrase.result : ""
-    openclaw_model          = var.openclaw_model
-    browser_enabled         = var.browser_enabled ? "true" : "false"
-    extra_apt_packages           = var.extra_apt_packages
-    enable_agent_to_agent        = var.enable_agent_to_agent
-    subagent_max_spawn_depth     = var.subagent_max_spawn_depth
-    subagent_max_concurrent      = var.subagent_max_concurrent
-    subagent_run_timeout_seconds = var.subagent_run_timeout_seconds
-  })
+  # Minimal cloud-init: swap only (Ansible handles everything else)
+  user_data = <<-CLOUD_INIT
+    #cloud-config
+    package_update: true
+    package_upgrade: true
+
+    runcmd:
+      - fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+      - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  CLOUD_INIT
+
+  connection {
+    type        = "ssh"
+    user        = "root"
+    private_key = file(local.ssh_private_key_path)
+    host        = self.ipv4_address
+  }
+
+  # Wait for cloud-init to finish before handing off to Ansible
+  provisioner "remote-exec" {
+    inline = [
+      "cloud-init status --wait > /dev/null 2>&1 || true",
+      "echo 'Cloud-init complete.'"
+    ]
+  }
 }
 
 resource "digitalocean_firewall" "openclaw" {
-  name        = "openclaw-strict-rules"
+  name        = "${var.droplet_name}-fw"
   droplet_ids = [digitalocean_droplet.openclaw.id]
 
+  # SSH (restricted to deployer IP by default)
   inbound_rule {
     protocol         = "tcp"
     port_range       = "22"
     source_addresses = local.ssh_cidrs
   }
 
+  # Tailscale WireGuard (direct connections)
+  inbound_rule {
+    protocol         = "udp"
+    port_range       = "41641"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  # All outbound (Tailscale DERP, apt, npm, AI APIs)
   outbound_rule {
     protocol              = "tcp"
     port_range            = "1-65535"
@@ -57,96 +69,9 @@ resource "digitalocean_firewall" "openclaw" {
     port_range            = "1-65535"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
-}
 
-# ── Health gate: wait for cloud-init before creating DNS/tunnel config ──────
-# Prevents Error 1033 (tunnel not connected) during initial deploy.
-
-resource "terraform_data" "wait_for_cloudinit" {
-  depends_on = [digitalocean_droplet.openclaw, digitalocean_firewall.openclaw]
-
-  provisioner "file" {
-    content     = <<-SCRIPT
-      #!/bin/bash
-      set -e
-      MAX_WAIT=900
-      START=$(date +%s)
-      LAST=""
-      echo "Waiting for cloud-init (timeout: $${MAX_WAIT}s)..."
-      while true; do
-        ELAPSED=$(( $(date +%s) - START ))
-        if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
-          echo "TIMEOUT after $${ELAPSED}s — cloud-init did not finish"
-          exit 1
-        fi
-        RAW=$(cloud-init status 2>&1) || true
-        STATUS=$(echo "$RAW" | head -1 | sed 's/^status: //')
-        PROGRESS=""
-        [ -f /swapfile ]                                                  && PROGRESS="$${PROGRESS}swap "
-        command -v docker >/dev/null 2>&1                                  && PROGRESS="$${PROGRESS}docker "
-        [ -d /root/openclaw-setup/.git ]                                   && PROGRESS="$${PROGRESS}repo "
-        command -v ttyd >/dev/null 2>&1                                    && PROGRESS="$${PROGRESS}ttyd "
-        docker ps --format '{{.Names}}' 2>/dev/null | grep -q openclaw-gateway && PROGRESS="$${PROGRESS}gateway "
-        docker ps --format '{{.Names}}' 2>/dev/null | grep -q cloudflared      && PROGRESS="$${PROGRESS}tunnel "
-        docker ps --format '{{.Names}}' 2>/dev/null | grep -q dozzle            && PROGRESS="$${PROGRESS}dozzle "
-        LINE="[$${ELAPSED}s] $STATUS | $PROGRESS"
-        if [ "$LINE" != "$LAST" ]; then
-          echo "$LINE"
-          LAST="$LINE"
-        fi
-        case "$STATUS" in
-          done)  echo "cloud-init: OK ($${ELAPSED}s)"; exit 0 ;;
-          error) echo "cloud-init: FAILED ($${ELAPSED}s) — check /var/log/cloud-init-output.log"; exit 1 ;;
-        esac
-        sleep 10
-      done
-    SCRIPT
-    destination = "/tmp/wait-cloudinit.sh"
-    connection {
-      type        = "ssh"
-      host        = digitalocean_droplet.openclaw.ipv4_address
-      user        = "root"
-      private_key = file(local.ssh_private_key_path)
-      timeout     = "15m"
-    }
-  }
-
-  provisioner "remote-exec" {
-    inline = ["chmod +x /tmp/wait-cloudinit.sh && /tmp/wait-cloudinit.sh"]
-    connection {
-      type        = "ssh"
-      host        = digitalocean_droplet.openclaw.ipv4_address
-      user        = "root"
-      private_key = file(local.ssh_private_key_path)
-      timeout     = "15m"
-    }
-  }
-}
-
-# ── Restart cloudflared after Terraform pushes tunnel config + DNS ───────────
-# Cloud-init starts cloudflared before Terraform creates ingress rules, so it
-# serves 503. This provisioner fires AFTER both the config and DNS CNAMEs exist.
-
-resource "terraform_data" "restart_cloudflared" {
-  depends_on = [
-    cloudflare_zero_trust_tunnel_cloudflared_config.openclaw,
-    cloudflare_record.dashboard,
-    cloudflare_record.status,
-    cloudflare_record.admin,
-  ]
-
-  provisioner "remote-exec" {
-    inline = [
-      "docker restart cloudflared",
-      "sleep 5",
-      "echo \"cloudflared: $(docker inspect cloudflared --format '{{.State.Status}}' 2>/dev/null || echo unknown)\"",
-    ]
-    connection {
-      type        = "ssh"
-      host        = digitalocean_droplet.openclaw.ipv4_address
-      user        = "root"
-      private_key = file(local.ssh_private_key_path)
-      timeout     = "5m"
-    }
+  outbound_rule {
+    protocol              = "icmp"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 }
