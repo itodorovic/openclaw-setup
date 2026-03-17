@@ -19,6 +19,7 @@ packages:
   - ansible
   - build-essential
   - python3
+  - python3-is-python
   - tmux
   - gh
   - ffmpeg
