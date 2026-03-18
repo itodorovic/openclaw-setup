@@ -126,6 +126,79 @@ pnpx clawhub install duckduckgo-search
 
 When prompted during onboarding to configure web search, skip the Grok API key step.
 
+## WhatsApp Group Setup
+
+To add the agent to a WhatsApp group, you need the group's JID (unique identifier). Since the agent runs as a linked device on your WhatsApp account, it already sees all your groups — you just need to find the JID and allowlist it.
+
+### 1. Temporarily open group policy
+
+Set `groupPolicy` to `"open"` in `~/.openclaw/openclaw.json` so the message isn't silently dropped:
+
+```json
+"channels": {
+  "whatsapp": {
+    "groupPolicy": "open",
+    "groups": { "*": { "requireMention": false } }
+  }
+}
+```
+
+Restart the gateway:
+
+```bash
+restart-gateway
+```
+
+### 2. Watch the logs and send a message in the target group
+
+```bash
+ssh openclaw@<droplet-ip>
+XDG_RUNTIME_DIR=/run/user/$(id -u) journalctl --user -u openclaw-gateway -f
+```
+
+Send any message in the WhatsApp group. The logs will show:
+
+```
+[whatsapp] Inbound message 120363XXXXXXXXXX@g.us -> +XXXXXXXXXXX (group, NN chars)
+```
+
+The `120363XXXXXXXXXX@g.us` part is your group JID. Copy it.
+
+### 3. Lock down to that group
+
+Update `~/.openclaw/openclaw.json` with the JID:
+
+```json
+"channels": {
+  "whatsapp": {
+    "groupPolicy": "allowlist",
+    "groupAllowFrom": ["*"],
+    "groups": {
+      "120363XXXXXXXXXX@g.us": { "requireMention": true }
+    }
+  }
+}
+```
+
+Restart the gateway again. The agent will now only respond in that group, and only when mentioned.
+
+### 4. Set up mention patterns
+
+Add a mention trigger to `agents.list` in `openclaw.json` so group members can invoke the agent by name:
+
+```json
+"agents": {
+  "list": [{
+    "id": "main",
+    "groupChat": {
+      "mentionPatterns": ["@djordje"]
+    }
+  }]
+}
+```
+
+Restart the gateway. Group members can now type `@djordje` to get a response, or reply to one of the agent's messages.
+
 ## Tear Down
 
 ```bash
