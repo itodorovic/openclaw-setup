@@ -113,6 +113,19 @@ Refresh the browser — it will connect. Each new browser profile needs this onc
 | `droplet_size` | | `s-1vcpu-2gb` | Droplet size |
 | `allowed_ssh_cidrs` | | auto-detected | IPs allowed SSH access (defaults to your current IP) |
 
+## Web Search
+
+OpenClaw's built-in web search (Grok) requires paid xAI credits. A free alternative is the [DuckDuckGo search skill](https://clawhub.io) from clawhub, which uses the droplet's native internet connectivity — no API key needed.
+
+Install it once after onboarding (as the openclaw user):
+
+```bash
+pnpm add -g clawhub
+pnpx clawhub install duckduckgo-search
+```
+
+When prompted during onboarding to configure web search, skip the Grok API key step.
+
 ## Tear Down
 
 ```bash
