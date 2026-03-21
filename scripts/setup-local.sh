@@ -4,8 +4,12 @@
 # Run as ROOT on the target machine (e.g., ssh root@192.168.88.19 'bash -s' < setup-local.sh)
 #
 # This script is idempotent — safe to re-run. It combines:
-#   - Base machine setup (SSH hardening, lid close, static IP, Docker, dev tools)
+#   - Base machine setup (SSH hardening, lid close, static IP, dev tools)
 #   - OpenClaw layer (swap, ufw, packages, openclaw user)
+#
+# NOTE: Docker, Node.js, and pnpm are NOT installed by this script.
+# The OpenClaw Ansible playbook installs them with its own GPG keys
+# and apt sources. Installing them here would cause conflicts.
 #
 # After this script completes, follow the README for:
 #   1. Install OpenClaw via Ansible (as root)
@@ -194,67 +198,20 @@ NETPLAN
   DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq
   echo "    Done."
 
-  # ── Section 5: Install Docker ─────────────────────────────────────────────
+  # ── Section 5: Docker — skipped (Ansible installs it) ─────────────────────
 
   echo "==> [5/7] Docker..."
-
-  if command -v docker &>/dev/null; then
-    echo "    Docker already installed ($(docker --version)), skipping."
-  else
-    # Remove conflicting packages
-    for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do
-      apt-get remove -y "$pkg" 2>/dev/null || true
-    done
-
-    # Add Docker repo
-    apt-get install -y -qq ca-certificates curl
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-    chmod a+r /etc/apt/keyrings/docker.asc
-    echo "Types: deb
-URIs: https://download.docker.com/linux/ubuntu
-Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
-Components: stable
-Signed-By: /etc/apt/keyrings/docker.asc" > /etc/apt/sources.list.d/docker.sources
-    apt-get update -qq
-
-    # Install
-    apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    systemctl enable docker containerd
-    echo "    Docker installed."
-  fi
-
-  # Add admin user to docker group
-  if id -nG "$ADMIN_USER" | grep -qw docker; then
-    echo "    $ADMIN_USER already in docker group."
-  else
-    usermod -aG docker "$ADMIN_USER"
-    echo "    $ADMIN_USER added to docker group."
-  fi
+  echo "    Skipped — the OpenClaw Ansible playbook installs Docker."
+  echo "    (Avoids GPG key / apt source conflicts between this script and Ansible.)"
 
   # ── Section 6: Development Tools ──────────────────────────────────────────
+  # NOTE: Node.js and pnpm are also installed by the Ansible playbook.
+  # Only tools NOT covered by Ansible are installed here.
 
   echo "==> [6/7] Development tools..."
 
   # Build essentials
   apt-get install -y -qq build-essential
-
-  # Node.js (via NodeSource)
-  if command -v node &>/dev/null; then
-    echo "    Node.js already installed ($(node --version)), skipping."
-  else
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-    apt-get install -y -qq nodejs
-    echo "    Node.js installed."
-  fi
-
-  # pnpm
-  if command -v pnpm &>/dev/null; then
-    echo "    pnpm already installed ($(pnpm --version)), skipping."
-  else
-    npm install -g pnpm
-    echo "    pnpm installed."
-  fi
 
   # Go
   if [[ -x /usr/local/go/bin/go ]]; then
@@ -296,6 +253,8 @@ Signed-By: /etc/apt/keyrings/docker.asc" > /etc/apt/sources.list.d/docker.source
 
   echo ""
   echo ">>> Base machine setup complete."
+  echo ">>> NOTE: After Ansible installs Docker, add $ADMIN_USER to the docker group:"
+  echo ">>>   usermod -aG docker $ADMIN_USER"
   echo ">>> NOTE: Run 'gh auth login' and 'docker login' as $ADMIN_USER interactively."
   echo ""
 
@@ -387,12 +346,15 @@ EOF
   chmod 700 /home/openclaw/.ssh
   chmod 600 /home/openclaw/.ssh/authorized_keys 2>/dev/null || true
 
-  # Add openclaw to docker group
-  usermod -aG docker openclaw 2>/dev/null || true
+  # Add openclaw to docker group (if Docker is already installed)
+  if getent group docker &>/dev/null; then
+    usermod -aG docker openclaw
+  fi
 
   # Enable lingering (systemd user services survive logout)
   loginctl enable-linger openclaw
-  echo "    openclaw user configured (sudo, SSH, docker, linger)."
+  echo "    openclaw user configured (sudo, SSH, linger)."
+  echo "    NOTE: Ansible will add openclaw to the docker group when it installs Docker."
 
   # ── Git config for openclaw ───────────────────────────────────────────────
 
