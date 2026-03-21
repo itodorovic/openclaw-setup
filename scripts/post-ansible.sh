@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# post-ansible.sh — Run as ROOT on the droplet after the Ansible playbook completes.
+# post-ansible.sh — Run as ROOT after Ansible install + openclaw onboard.
 #
 # Usage:
 #   bash post-ansible.sh <tailscale-authkey>
@@ -13,6 +13,10 @@
 #   3. Auto-detects the Tailscale hostname
 #   4. Grants openclaw user Tailscale operator rights (required for serve)
 #   5. Configures the OpenClaw gateway for Tailscale Serve + identity auth
+#
+# After this script:
+#   - Open https://<machine>.<tailnet>.ts.net (use https:// explicitly!)
+#   - Approve device pairing: openclaw devices approve (as openclaw user)
 
 set -euo pipefail
 
@@ -102,5 +106,9 @@ echo ""
 echo "==> All done!"
 echo ""
 echo "    Dashboard: https://$TAILSCALE_DOMAIN"
+echo "    (Use https:// explicitly — Android Chrome defaults to http!)"
 echo "    (Requires HTTPS Certificates enabled in Tailscale admin DNS settings)"
 echo "    https://login.tailscale.com/admin/dns"
+echo ""
+echo "    To approve device pairing (as openclaw user):"
+echo "      openclaw devices approve"

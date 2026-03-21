@@ -293,18 +293,14 @@ if [[ "$SKIP_OPENCLAW" == false ]]; then
   fi
 
   # ── UFW Firewall ──────────────────────────────────────────────────────────
+  # NOTE: UFW is NOT enabled for local LAN machines. The Ansible playbook
+  # installs and configures UFW with Docker isolation rules. On a local
+  # machine behind a router, UFW is unnecessary and can interfere with
+  # OpenAI OAuth during onboarding.
 
   echo "==> [OC 3/6] UFW firewall..."
-
-  if ufw status | grep -q "Status: active"; then
-    echo "    UFW already active, skipping."
-  else
-    ufw default deny incoming
-    ufw default allow outgoing
-    ufw allow 22/tcp
-    ufw --force enable
-    echo "    UFW enabled (SSH only)."
-  fi
+  echo "    Skipped — not needed on LAN machines (Ansible configures UFW if required)."
+  echo "    (UFW can block OpenAI OAuth token exchange during onboarding.)"
 
   # ── Auto-upgrades + needrestart ────────────────────────────────────────────
 
@@ -385,16 +381,25 @@ echo ""
 echo " Next steps:"
 echo ""
 echo "   1. If not done: run 'gh auth login' and 'docker login' as $ADMIN_USER"
+echo "      Also run 'gh auth login' and 'docker login' as openclaw"
 echo ""
 echo "   2. Install OpenClaw (as root):"
 echo "      curl -fsSL https://raw.githubusercontent.com/openclaw/openclaw-ansible/main/install.sh | bash"
 echo ""
-echo "   3. Onboard (SSH as openclaw — never sudo su):"
+echo "   3. Fix permissions (as root — Ansible creates pnpm dirs as root):"
+echo "      chown -R openclaw:openclaw /home/openclaw"
+echo ""
+echo "   4. Onboard (SSH as openclaw — never sudo su):"
 echo "      ssh openclaw@<this-machine>"
 echo "      tmux"
 echo "      openclaw onboard --install-daemon"
+echo "      TIP: Paste the OAuth redirect URL quickly — the code expires in seconds."
 echo ""
-echo "   4. Run post-ansible.sh (as root):"
+echo "   5. Run post-ansible.sh (as root):"
 echo "      bash scripts/post-ansible.sh <tailscale-authkey>"
+echo ""
+echo "   6. Approve device pairing (as openclaw):"
+echo "      openclaw devices approve"
+echo "      NOTE: Use https:// explicitly (Android Chrome defaults to http)."
 echo ""
 echo "============================================"
