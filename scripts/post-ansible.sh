@@ -8,11 +8,17 @@
 #   bash post-ansible.sh tskey-auth-xxx...
 #
 # What it does:
-#   1. Fixes pnpm directory ownership (Ansible creates them as root)
-#   2. Installs Tailscale and connects to your tailnet
-#   3. Auto-detects the Tailscale hostname
-#   4. Grants openclaw user Tailscale operator rights (required for serve)
-#   5. Configures the OpenClaw gateway for Tailscale Serve + identity auth
+#   1. Fixes home directory ownership (Ansible creates dirs as root)
+#   2. Reinstalls OpenClaw globally via npm (GUI updates require npm, not pnpm)
+#   3. Updates the systemd service to use the npm-installed binary
+#   4. Installs Tailscale and connects to your tailnet
+#   5. Auto-detects the Tailscale hostname
+#   6. Grants openclaw user Tailscale operator rights (required for serve)
+#   7. Configures the OpenClaw gateway for Tailscale Serve + identity auth
+#
+# Note: Both npm and pnpm remain available after this script:
+#   - npm: manages the OpenClaw global install (required for GUI self-updates)
+#   - pnpm: manages plugin installation (nodeManager: "pnpm" in openclaw.json)
 #
 # After this script:
 #   - Open https://<machine>.<tailnet>.ts.net (use https:// explicitly!)
@@ -38,11 +44,61 @@ fi
 OPENCLAW_HOME="/home/openclaw"
 OPENCLAW_CONFIG="$OPENCLAW_HOME/.openclaw/openclaw.json"
 
-echo "==> [1/3] Fixing home directory ownership..."
+echo "==> [1/5] Fixing home directory ownership..."
 chown -R openclaw:openclaw "$OPENCLAW_HOME"
 echo "    Done."
 
-echo "==> [2/3] Installing Tailscale..."
+# ── Reinstall OpenClaw via npm ────────────────────────────────────────────────
+# The Ansible playbook installs OpenClaw globally via pnpm, but the GUI's
+# "Update now" button uses npm for global self-updates. Without this, clicking
+# update in the dashboard produces "Update error: global update".
+# pnpm remains available for plugin installation (nodeManager: "pnpm").
+
+echo "==> [2/5] Reinstalling OpenClaw via npm (required for GUI updates)..."
+
+# Ensure npm is available (Node.js from Ansible should include it)
+if ! command -v npm &>/dev/null; then
+  echo "    Error: npm not found. Node.js may not have been installed correctly by Ansible."
+  exit 1
+fi
+
+# Get current version before reinstall
+CURRENT_VERSION=$(openclaw --version 2>/dev/null | awk '{print $2}' || echo "unknown")
+echo "    Current version: $CURRENT_VERSION (installed via pnpm)"
+
+# Install via npm globally
+npm install -g openclaw
+echo "    Installed via npm: $(openclaw --version 2>/dev/null)"
+
+# Remove the pnpm global install to avoid confusion
+if pnpm list -g openclaw &>/dev/null 2>&1; then
+  pnpm remove -g openclaw 2>/dev/null || true
+  echo "    Removed pnpm global install."
+fi
+
+echo "    Done."
+
+# ── Fix systemd service to use npm binary path ───────────────────────────────
+echo "==> [3/5] Updating systemd service to use npm-installed binary..."
+
+OPENCLAW_SERVICE="$OPENCLAW_HOME/.config/systemd/user/openclaw-gateway.service"
+if [[ -f "$OPENCLAW_SERVICE" ]]; then
+  # Replace any hardcoded pnpm path in ExecStart with /usr/bin/openclaw
+  if grep -q '.local/share/pnpm' "$OPENCLAW_SERVICE"; then
+    sed -i 's|^ExecStart=.*|ExecStart=/usr/bin/openclaw gateway --port 18789|' "$OPENCLAW_SERVICE"
+    # Reload systemd for the openclaw user
+    su - openclaw -s /bin/bash -c "XDG_RUNTIME_DIR=/run/user/\$(id -u openclaw) systemctl --user daemon-reload"
+    echo "    Service updated to use /usr/bin/openclaw."
+  else
+    echo "    Service already uses the correct binary path."
+  fi
+else
+  echo "    Service file not found yet (will be created during onboard)."
+fi
+
+echo "    Done."
+
+echo "==> [4/5] Installing Tailscale..."
 if command -v tailscale &>/dev/null; then
   echo "    Tailscale already installed, skipping."
 else
@@ -69,7 +125,7 @@ echo "    Tailscale domain: $TAILSCALE_DOMAIN"
 # Grant openclaw operator rights so it can manage tailscale serve
 tailscale set --operator=openclaw
 
-echo "==> [3/3] Configuring OpenClaw gateway for Tailscale..."
+echo "==> [5/5] Configuring OpenClaw gateway for Tailscale..."
 if [[ ! -f "$OPENCLAW_CONFIG" ]]; then
   echo "    Error: $OPENCLAW_CONFIG not found. Run openclaw onboard first."
   exit 1

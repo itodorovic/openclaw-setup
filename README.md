@@ -8,7 +8,7 @@
 |-------|-----------|
 | Compute | DigitalOcean Droplet (1 vCPU, 2 GB RAM + 4 GB swap) |
 | Network | Tailscale VPN (replaces public ports) |
-| AI Agent | OpenClaw native install via pnpm (systemd user service) |
+| AI Agent | OpenClaw native install via npm (systemd user service) |
 | Security | UFW + fail2ban + unattended-upgrades |
 
 ## Prerequisites
@@ -56,7 +56,7 @@ If disconnected, reconnect and run `tmux attach`.
 
 ### 4. Run post-Ansible setup (as root)
 
-This script fixes pnpm permissions, installs Tailscale, and configures the gateway in one shot.
+This script fixes permissions, reinstalls OpenClaw via npm (required for GUI updates), installs Tailscale, and configures the gateway in one shot.
 
 **Before running:** enable HTTPS Certificates in [Tailscale admin DNS settings](https://login.tailscale.com/admin/dns) and generate an auth key from [tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
 
