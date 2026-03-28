@@ -199,6 +199,23 @@ Add a mention trigger to `agents.list` in `openclaw.json` so group members can i
 
 Restart the gateway. Group members can now type `@djordje` to get a response, or reply to one of the agent's messages.
 
+## Cron Jobs
+
+When adding cron jobs to a multi-channel gateway (e.g. both WhatsApp and Telegram enabled), you must either:
+- set an explicit delivery channel: `--channel telegram --to <chatId>`
+- or disable delivery: `--no-deliver`
+
+Without this, jobs will error with _"Channel is required when multiple channels are configured"_ even though the agent work completes successfully. For watchdog-style jobs that don't need to message anyone, use `--no-deliver`.
+
+Example:
+```bash
+# Create a watchdog job with no delivery
+openclaw cron add --name my-watchdog --every 2h --session isolated --no-deliver --message "Check system health"
+
+# Fix an existing job that's failing on delivery
+openclaw cron edit <job-id> --no-deliver
+```
+
 ## Tear Down
 
 ```bash
