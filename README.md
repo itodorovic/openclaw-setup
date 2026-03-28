@@ -199,6 +199,56 @@ Add a mention trigger to `agents.list` in `openclaw.json` so group members can i
 
 Restart the gateway. Group members can now type `@djordje` to get a response, or reply to one of the agent's messages.
 
+## Semantic Memory
+
+OpenClaw's semantic memory search requires an embedding provider. The Codex OAuth subscription covers chat completions but **not** the embeddings API. You need a separate OpenAI platform API key.
+
+### Setup
+
+1. Add API credits at [platform.openai.com/settings/billing](https://platform.openai.com/settings/billing) ($5 is plenty)
+2. **Disable auto-recharge** and set a **monthly budget cap** at [platform.openai.com/settings/limits](https://platform.openai.com/settings/limits)
+3. Create a **restricted API key** at [platform.openai.com/api-keys](https://platform.openai.com/api-keys) with only the **Embeddings** permission
+4. Add the key to the agent-level auth profiles (as openclaw user):
+
+```bash
+python3 -c "
+import json
+path = '/home/openclaw/.openclaw/agents/main/agent/auth-profiles.json'
+with open(path) as f:
+    d = json.load(f)
+d['profiles']['openai:default'] = {
+    'type': 'api_key',
+    'provider': 'openai',
+    'key': '<YOUR_OPENAI_API_KEY>'
+}
+with open(path, 'w') as f:
+    json.dump(d, f, indent=2)
+"
+```
+
+5. Also set it as an environment variable for the gateway service:
+
+```bash
+echo 'OPENAI_API_KEY=<YOUR_OPENAI_API_KEY>' > ~/.secrets/openclaw-gateway.env
+chmod 600 ~/.secrets/openclaw-gateway.env
+```
+
+Add `EnvironmentFile=/home/openclaw/.secrets/openclaw-gateway.env` to the `[Service]` section of `~/.config/systemd/user/openclaw-gateway.service`, then reload and restart.
+
+6. Index and verify:
+
+```bash
+openclaw memory index --force
+openclaw memory status --deep
+openclaw memory search "test query"
+```
+
+Expected: `Provider: openai`, `Model: text-embedding-3-small`, `Embeddings: ready`, indexed files/chunks > 0.
+
+### Cost
+
+`text-embedding-3-small` costs ~$0.02 per million tokens. With auto-recharge off and a $5 budget cap, runaway costs are impossible.
+
 ## Cron Jobs
 
 When adding cron jobs to a multi-channel gateway (e.g. both WhatsApp and Telegram enabled), you must either:
