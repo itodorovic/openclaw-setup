@@ -232,3 +232,5 @@ terraform destroy
 - Never commit `terraform.tfstate` or `terraform.tfvars` (gitignored)
 - Dashboard access via Tailscale Serve only — no public web ports
 - `allowTailscale: true` trusts Tailscale identity headers — only safe because the VPS is a trusted host
+- `gateway.nodes.denyCommands` uses **exact command-name matching** — entries must match real command IDs (e.g. `camera.list`, `sms.search`), not shell-text patterns. Run `openclaw security audit --deep` to check for ineffective entries
+- The trust model warning about multi-user access is expected for a WhatsApp group setup — this is a single-operator gateway behind Tailscale, not a multi-tenant system
