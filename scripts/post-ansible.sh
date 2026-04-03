@@ -9,15 +9,15 @@
 #
 # What it does:
 #   1. Fixes home directory ownership (Ansible creates dirs as root)
-#   2. Reinstalls OpenClaw globally via npm (GUI updates require npm, not pnpm)
-#   3. Updates the systemd service to use the npm-installed binary
+#   2. Reinstalls OpenClaw via npm under ~/.local (user-writable prefix)
+#   3. Updates the systemd service to use the user-local binary
 #   4. Installs Tailscale and connects to your tailnet
 #   5. Auto-detects the Tailscale hostname
 #   6. Grants openclaw user Tailscale operator rights (required for serve)
 #   7. Configures the OpenClaw gateway for Tailscale Serve + identity auth
 #
 # Note: Both npm and pnpm remain available after this script:
-#   - npm: manages the OpenClaw global install (required for GUI self-updates)
+#   - npm: manages the OpenClaw install under ~/.local (GUI self-updates work)
 #   - pnpm: manages plugin installation (nodeManager: "pnpm" in openclaw.json)
 #
 # After this script:
@@ -48,13 +48,14 @@ echo "==> [1/5] Fixing home directory ownership..."
 chown -R openclaw:openclaw "$OPENCLAW_HOME"
 echo "    Done."
 
-# ── Reinstall OpenClaw via npm ────────────────────────────────────────────────
-# The Ansible playbook installs OpenClaw globally via pnpm, but the GUI's
-# "Update now" button uses npm for global self-updates. Without this, clicking
-# update in the dashboard produces "Update error: global update".
+# ── Reinstall OpenClaw via npm under user-local prefix ────────────────────────
+# The Ansible playbook installs OpenClaw globally via pnpm under /usr, but the
+# GUI's "Update now" button runs `npm install -g` which fails with EACCES on
+# system-owned directories. By setting npm prefix to ~/.local, the openclaw
+# user can self-update without sudo.
 # pnpm remains available for plugin installation (nodeManager: "pnpm").
 
-echo "==> [2/5] Reinstalling OpenClaw via npm (required for GUI updates)..."
+echo "==> [2/5] Reinstalling OpenClaw under ~/.local (user-writable, GUI updates work)..."
 
 # Ensure npm is available (Node.js from Ansible should include it)
 if ! command -v npm &>/dev/null; then
@@ -66,9 +67,9 @@ fi
 CURRENT_VERSION=$(openclaw --version 2>/dev/null | awk '{print $2}' || echo "unknown")
 echo "    Current version: $CURRENT_VERSION (installed via pnpm)"
 
-# Install via npm globally
-npm install -g openclaw
-echo "    Installed via npm: $(openclaw --version 2>/dev/null)"
+# Set npm prefix to ~/.local for the openclaw user and install
+su - openclaw -s /bin/bash -c "npm config set prefix ~/.local && npm install -g openclaw"
+echo "    Installed under ~/.local: $(su - openclaw -s /bin/bash -c '~/.local/bin/openclaw --version' 2>/dev/null)"
 
 # Remove the pnpm global install to avoid confusion
 if pnpm list -g openclaw &>/dev/null 2>&1; then
@@ -76,22 +77,37 @@ if pnpm list -g openclaw &>/dev/null 2>&1; then
   echo "    Removed pnpm global install."
 fi
 
+# Remove system-wide npm install if present
+if [[ -d /usr/lib/node_modules/openclaw ]]; then
+  npm rm -g openclaw 2>/dev/null || true
+  echo "    Removed system-wide npm install."
+fi
+
 echo "    Done."
 
-# ── Fix systemd service to use npm binary path ───────────────────────────────
-echo "==> [3/5] Updating systemd service to use npm-installed binary..."
+# ── Fix systemd service to use user-local binary path ─────────────────────────
+echo "==> [3/5] Updating systemd service to use user-local binary..."
 
 OPENCLAW_SERVICE="$OPENCLAW_HOME/.config/systemd/user/openclaw-gateway.service"
 if [[ -f "$OPENCLAW_SERVICE" ]]; then
-  # Replace any hardcoded pnpm path in ExecStart with /usr/bin/openclaw
-  if grep -q '.local/share/pnpm' "$OPENCLAW_SERVICE"; then
-    sed -i 's|^ExecStart=.*|ExecStart=/usr/bin/openclaw gateway --port 18789|' "$OPENCLAW_SERVICE"
-    # Reload systemd for the openclaw user
-    su - openclaw -s /bin/bash -c "XDG_RUNTIME_DIR=/run/user/\$(id -u openclaw) systemctl --user daemon-reload"
-    echo "    Service updated to use /usr/bin/openclaw."
+  LOCAL_INDEX="$OPENCLAW_HOME/.local/lib/node_modules/openclaw/dist/index.js"
+  # Replace ExecStart to use the user-local path
+  if ! grep -q "$LOCAL_INDEX" "$OPENCLAW_SERVICE"; then
+    sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/node $LOCAL_INDEX gateway --port 18789|" "$OPENCLAW_SERVICE"
+    echo "    Service updated to use $LOCAL_INDEX."
   else
     echo "    Service already uses the correct binary path."
   fi
+
+  # Add EnvironmentFile for secrets (.env) if not already present
+  ENV_FILE="$OPENCLAW_HOME/.config/openclaw/.env"
+  if [[ -f "$ENV_FILE" ]] && ! grep -q "EnvironmentFile=" "$OPENCLAW_SERVICE"; then
+    sed -i "/^\[Service\]/a EnvironmentFile=$ENV_FILE" "$OPENCLAW_SERVICE"
+    echo "    Added EnvironmentFile for $ENV_FILE."
+  fi
+
+  # Reload systemd for the openclaw user
+  su - openclaw -s /bin/bash -c "XDG_RUNTIME_DIR=/run/user/\$(id -u openclaw) systemctl --user daemon-reload"
 else
   echo "    Service file not found yet (will be created during onboard)."
 fi
